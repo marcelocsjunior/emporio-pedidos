@@ -6,9 +6,9 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
-from orders.models import AuditEvent
 
 from intelligence.models import AIEvent, AIRecommendation
+from orders.models import AuditEvent
 
 
 class Command(BaseCommand):

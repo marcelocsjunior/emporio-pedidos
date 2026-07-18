@@ -2,14 +2,12 @@ from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 import pytest
-from accounts.roles import ROLE_ATTENDANCE, ROLE_FINANCE, ensure_roles
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
-from orders.forms import CompanyForm
-from orders.models import AuditEvent, Company, Order, OrderItem, Product
 
+from accounts.roles import ROLE_ATTENDANCE, ROLE_FINANCE, ensure_roles
 from intelligence.access import visible_recommendations_for_user
 from intelligence.engine import (
     enqueue_due_events,
@@ -18,6 +16,8 @@ from intelligence.engine import (
 )
 from intelligence.models import AIEvent, AIFeedback, AIRecommendation, DataContext
 from intelligence.privacy import assert_payload_safe, sanitize_text
+from orders.forms import CompanyForm
+from orders.models import AuditEvent, Company, Order, OrderItem, Product
 
 pytestmark = pytest.mark.django_db
 

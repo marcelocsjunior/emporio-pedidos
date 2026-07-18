@@ -5,12 +5,12 @@ from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
-from orders.models import AuditEvent
 
 from intelligence.candidates import _hash_payload
 from intelligence.engine import process_next_event
 from intelligence.models import AIAnalysisRun, AIEvent, AIRecommendation, DataContext
 from intelligence.providers import ProviderTransientError
+from orders.models import AuditEvent
 
 pytestmark = pytest.mark.django_db
 

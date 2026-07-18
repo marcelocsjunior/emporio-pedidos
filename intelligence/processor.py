@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+
 from orders.models import AuditEvent, MonthlyClosing, Order
 
 from .candidates import _expiration_for, _hash_payload, _prompt_version

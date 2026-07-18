@@ -9,11 +9,12 @@ from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView
+
 from orders.services import record_audit
 
 from .access import user_can_process_ai, visible_recommendations_for_user
 from .engine import audit_manual_enqueue, enqueue_due_events
-from .models import AIFeedback, AIEvent, AIRecommendation, DataContext
+from .models import AIEvent, AIFeedback, AIRecommendation, DataContext
 
 
 class CentralIntelligenceView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
