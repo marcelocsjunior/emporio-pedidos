@@ -1,0 +1,72 @@
+<section class="panel operational-assistant" aria-labelledby="operational-assistant-title">
+  <div class="panel-heading operational-assistant-heading">
+    <div>
+      <div class="eyebrow">Central Comercial</div>
+      <h2 id="operational-assistant-title">Assistente Operacional</h2>
+      <p>Prioridades para triagem, autorização e entrega. A decisão permanece humana.</p>
+    </div>
+    {% if assistant_panel %}
+    <div class="assistant-total" aria-label="Total de prioridades abertas">
+      <strong>{{ assistant_panel.total_open }}</strong>
+      <span>pendência{{ assistant_panel.total_open|pluralize }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if assistant_panel_error %}
+  <div class="message warning">
+    Assistente Operacional temporariamente indisponível. O restante do painel permanece ativo.
+  </div>
+  {% elif assistant_panel %}
+  <div class="assistant-metrics" aria-label="Resumo das prioridades">
+    <div><strong>{{ assistant_panel.counts.authorization }}</strong><span>Autorizações</span></div>
+    <div><strong>{{ assistant_panel.counts.inconsistency }}</strong><span>Inconsistências</span></div>
+    <div><strong>{{ assistant_panel.counts.progress }}</strong><span>Sem avanço</span></div>
+    <div><strong>{{ assistant_panel.counts.delivery }}</strong><span>Riscos de entrega</span></div>
+  </div>
+
+  <div class="assistant-card-list">
+    {% for card in assistant_panel.cards %}
+    <article class="assistant-card severity-{{ card.severity }}">
+      <header>
+        <div class="assistant-card-tags">
+          <span class="severity-tag">{{ card.severity_label }}</span>
+          <span class="status-tag">{{ card.reference }}</span>
+        </div>
+        <span class="assistant-delivery">{{ card.delivery_label }}</span>
+      </header>
+      <h3>{{ card.title }}</h3>
+      <p class="assistant-company">{{ card.company_name }}</p>
+      <p>{{ card.summary }}</p>
+      {% if card.suggested_action %}
+      <div class="suggested-action"><strong>Ação sugerida:</strong> {{ card.suggested_action }}</div>
+      {% endif %}
+      <div class="assistant-card-actions">
+        <a class="button compact" href="{{ card.action_url }}">{{ card.action_label }}</a>
+        {% if card.message_suggestion %}
+        <details class="assistant-message">
+          <summary>Mensagem sugerida</summary>
+          <label class="sr-only" for="assistant-message-{{ forloop.counter }}">Mensagem sugerida</label>
+          <textarea id="assistant-message-{{ forloop.counter }}" readonly>{{ card.message_suggestion }}</textarea>
+          <button
+            class="button compact assistant-copy-button"
+            type="button"
+            data-copy-target="assistant-message-{{ forloop.counter }}"
+          >Copiar texto</button>
+          <span class="assistant-copy-status" aria-live="polite"></span>
+        </details>
+        {% endif %}
+      </div>
+    </article>
+    {% empty %}
+    <div class="empty">Nenhuma prioridade operacional aberta para o seu perfil.</div>
+    {% endfor %}
+  </div>
+
+  {% if perms.intelligence.view_airecommendation %}
+  <div class="assistant-footer">
+    <a href="{% url 'intelligence:central' %}">Ver histórico completo na Central Inteligente</a>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
