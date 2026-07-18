@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Falha interna — Empório Pedidos{% endblock %}
+{% block content %}
+<section class="panel narrow" role="alert">
+  <div class="eyebrow">Falha interna</div>
+  <h1>Não foi possível concluir esta operação</h1>
+  <p>A ocorrência foi registrada. Atualize a página e tente novamente.</p>
+  <p><strong>Código de rastreamento:</strong> <code>{{ request_id }}</code></p>
+  <p><a class="button" href="{% url 'dashboard' %}">Voltar ao painel</a></p>
+</section>
+{% endblock %}

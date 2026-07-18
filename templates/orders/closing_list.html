@@ -2,8 +2,26 @@
 {% block title %}Fechamentos — Empório Pedidos{% endblock %}
 {% block content %}
 <div class="page-heading"><div><div class="eyebrow">Financeiro</div><h1>Fechamentos mensais</h1></div></div>
-<section class="panel"><div class="table-wrap"><table><thead><tr><th>Mês</th><th>Empresa</th><th class="numeric">Pedidos</th><th class="numeric">Itens</th><th class="numeric">Total</th><th>Status</th></tr></thead><tbody>
-{% for closing in closings %}<tr><td>{{ closing.reference_month|date:"m/Y" }}</td><td>{{ closing.company.name }}</td><td class="numeric">{{ closing.order_count }}</td><td class="numeric">{{ closing.item_count }}</td><td class="numeric">R$ {{ closing.total_amount|floatformat:2 }}</td><td><span class="status-pill">{{ closing.get_status_display }}</span></td></tr>{% empty %}<tr><td colspan="6" class="empty">Nenhum fechamento registrado.</td></tr>{% endfor %}
-</tbody></table></div></section>
+<section class="panel">
+  <div class="table-wrap">
+    <table class="responsive-table">
+      <thead><tr><th>Mês</th><th>Empresa</th><th class="numeric">Pedidos</th><th class="numeric">Itens</th><th class="numeric">Total</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for closing in closings %}
+        <tr>
+          <td data-label="Mês">{{ closing.reference_month|date:"m/Y" }}</td>
+          <td data-label="Empresa">{{ closing.company.name }}</td>
+          <td data-label="Pedidos" class="numeric">{{ closing.order_count }}</td>
+          <td data-label="Itens" class="numeric">{{ closing.item_count }}</td>
+          <td data-label="Total" class="numeric">R$ {{ closing.total_amount|floatformat:2 }}</td>
+          <td data-label="Status"><span class="status-pill">{{ closing.get_status_display }}</span></td>
+        </tr>
+      {% empty %}
+        <tr class="empty-row"><td colspan="6" class="empty">Nenhum fechamento registrado.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% include "orders/pagination.html" %}
 {% endblock %}

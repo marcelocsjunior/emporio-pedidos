@@ -7,6 +7,8 @@ def healthcheck(request):
     return JsonResponse({"status": "ok", "service": "emporio-pedidos"})
 
 
+handler500 = "config.error_views.server_error"
+
 admin.site.site_header = "Empório Pedidos — Administração"
 admin.site.site_title = "Empório Pedidos"
 admin.site.index_title = "Administração técnica"

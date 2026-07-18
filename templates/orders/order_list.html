@@ -8,8 +8,26 @@
   <select name="status"><option value="">Todos os status</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
   <button class="button" type="submit">Filtrar</button><a class="button ghost" href="{% url 'order-list' %}">Limpar</a>
 </form>
-<section class="panel"><div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Empresa</th><th>Entrega</th><th>Local</th><th>Status</th><th class="numeric">Total</th></tr></thead><tbody>
-{% for order in orders %}<tr><td><a href="{% url 'order-detail' order.pk %}"><strong>{{ order.number }}</strong></a></td><td>{{ order.company.name }}</td><td>{{ order.delivery_date|date:"d/m/Y" }} {{ order.delivery_time|time:"H:i" }}</td><td>{{ order.delivery_location|default:"—" }}</td><td><span class="status-pill status-{{ order.status }}">{{ order.get_status_display }}</span></td><td class="numeric">R$ {{ order.total_amount|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="6" class="empty">Nenhum pedido encontrado.</td></tr>{% endfor %}
-</tbody></table></div></section>
+<section class="panel">
+  <div class="table-wrap">
+    <table class="responsive-table">
+      <thead><tr><th>Pedido</th><th>Empresa</th><th>Entrega</th><th>Local</th><th>Status</th><th class="numeric">Total</th></tr></thead>
+      <tbody>
+      {% for order in orders %}
+        <tr>
+          <td data-label="Pedido"><a href="{% url 'order-detail' order.pk %}"><strong>{{ order.number }}</strong></a></td>
+          <td data-label="Empresa">{{ order.company.name }}</td>
+          <td data-label="Entrega">{{ order.delivery_date|date:"d/m/Y" }} {{ order.delivery_time|time:"H:i" }}</td>
+          <td data-label="Local">{{ order.delivery_location|default:"—" }}</td>
+          <td data-label="Status"><span class="status-pill status-{{ order.status }}">{{ order.get_status_display }}</span></td>
+          <td data-label="Total" class="numeric">R$ {{ order.total_amount|floatformat:2 }}</td>
+        </tr>
+      {% empty %}
+        <tr class="empty-row"><td colspan="6" class="empty">Nenhum pedido encontrado.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% include "orders/pagination.html" %}
 {% endblock %}
