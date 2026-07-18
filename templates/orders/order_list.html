@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Pedidos — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Operação</div><h1>Pedidos</h1></div></div>
+<form method="get" class="filter-bar filters-wide">
+  <input name="q" value="{{ request.GET.q }}" placeholder="Pedido, empresa, local ou observação">
+  <input type="date" name="delivery_date" value="{{ request.GET.delivery_date }}">
+  <select name="status"><option value="">Todos os status</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  <button class="button" type="submit">Filtrar</button><a class="button ghost" href="{% url 'order-list' %}">Limpar</a>
+</form>
+<section class="panel"><div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Empresa</th><th>Entrega</th><th>Local</th><th>Status</th><th class="numeric">Total</th></tr></thead><tbody>
+{% for order in orders %}<tr><td><a href="{% url 'order-detail' order.pk %}"><strong>{{ order.number }}</strong></a></td><td>{{ order.company.name }}</td><td>{{ order.delivery_date|date:"d/m/Y" }} {{ order.delivery_time|time:"H:i" }}</td><td>{{ order.delivery_location|default:"—" }}</td><td><span class="status-pill status-{{ order.status }}">{{ order.get_status_display }}</span></td><td class="numeric">R$ {{ order.total_amount|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="6" class="empty">Nenhum pedido encontrado.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% include "orders/pagination.html" %}
+{% endblock %}
