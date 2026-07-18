@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, time
 from types import MappingProxyType
-from typing import Mapping
 
 from django.db.models import Exists, OuterRef
 from django.urls import reverse
@@ -145,7 +145,9 @@ def _request_cards(user, *, now: datetime) -> list[AssistantCard]:
         if minutes_to_delivery <= 30:
             severity = AIRecommendation.Severity.CRITICAL
             title = f"{customer_request.protocol} requer autorização imediata"
-            summary = "A entrega está vencida ou ocorre em até 30 minutos e ainda não foi autorizada."
+            summary = (
+                "A entrega está vencida ou ocorre em até 30 minutos e ainda não foi autorizada."
+            )
             suggested_action = "Abrir a solicitação e decidir antes de qualquer produção."
             kind = KIND_AUTHORIZATION
         elif duplicate:
@@ -204,7 +206,12 @@ def _visible_ai_recommendations(user) -> list[AIRecommendation]:
     )
 
 
-def _order_cards(user, *, now: datetime, recommendations: list[AIRecommendation]) -> list[AssistantCard]:
+def _order_cards(
+    user,
+    *,
+    now: datetime,
+    recommendations: list[AIRecommendation],
+) -> list[AssistantCard]:
     if not user.has_perm("orders.view_order"):
         return []
 
