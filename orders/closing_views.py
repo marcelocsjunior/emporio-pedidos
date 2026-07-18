@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import uuid
 from datetime import datetime
 
 from django.contrib import messages
@@ -8,7 +9,6 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView
@@ -23,6 +23,13 @@ from .closing_services import (
     update_closing_notes,
 )
 from .models import AuditEvent, Company, MonthlyClosing
+
+AUDIT_LABELS = {
+    "closing.generated": "Fechamento gerado",
+    "closing.recalculated": "Fechamento recalculado",
+    "closing.status_changed": "Status do fechamento alterado",
+    "closing.notes_updated": "Observações atualizadas",
+}
 
 
 class ClosingPermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
@@ -42,7 +49,12 @@ class ClosingListView(ClosingPermissionMixin, ListView):
         status = self.request.GET.get("status", "").strip()
         reference_month = self.request.GET.get("reference_month", "").strip()
         if company_id:
-            queryset = queryset.filter(company_id=company_id)
+            try:
+                company_uuid = uuid.UUID(company_id)
+            except ValueError:
+                messages.warning(self.request, "Empresa inválida; filtro ignorado.")
+            else:
+                queryset = queryset.filter(company_id=company_uuid)
         if status in MonthlyClosing.Status.values:
             queryset = queryset.filter(status=status)
         if reference_month:
@@ -106,6 +118,10 @@ class ClosingDetailView(ClosingPermissionMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         allowed = allowed_closing_statuses_for_user(self.request.user, self.object)
+        events = AuditEvent.objects.filter(
+            entity_type="orders.monthlyclosing",
+            entity_id=str(self.object.pk),
+        ).select_related("actor")[:50]
         context.update(
             {
                 "orders": closing_orders_queryset(self.object),
@@ -116,10 +132,14 @@ class ClosingDetailView(ClosingPermissionMixin, DetailView):
                 ],
                 "notes_form": ClosingNotesForm(instance=self.object),
                 "whatsapp_link": build_whatsapp_link(self.object),
-                "audit_events": AuditEvent.objects.filter(
-                    entity_type="orders.monthlyclosing",
-                    entity_id=str(self.object.pk),
-                ).select_related("actor")[:50],
+                "audit_rows": [
+                    {
+                        "label": AUDIT_LABELS.get(event.action, "Atualização registrada"),
+                        "created_at": event.created_at,
+                        "actor": event.actor,
+                    }
+                    for event in events
+                ],
                 "can_recalculate": self.request.user.has_perm(
                     "orders.change_monthlyclosing"
                 )
