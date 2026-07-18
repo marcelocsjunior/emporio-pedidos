@@ -4,31 +4,56 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e3829">
   <title>{% block title %}Empório Pedidos{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="{% url 'dashboard' %}">
-      <span class="brand-mark">E</span>
-      <span><strong>Empório</strong><small>Gestão de Pedidos</small></span>
-    </a>
-    {% if user.is_authenticated %}
-      <nav class="nav" aria-label="Navegação principal">
-        <a href="{% url 'dashboard' %}">Painel</a>
-        {% if perms.orders.view_order %}<a href="{% url 'order-list' %}">Pedidos</a>{% endif %}
-        {% if perms.orders.view_company %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
-        {% if perms.orders.view_product %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
-        {% if perms.orders.view_monthlyclosing %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
-        {% if perms.orders.view_auditevent %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
-      </nav>
-      <div class="userbox">
-        <span class="user-name">{{ user }}</span>
-        {% for role in current_roles %}<span class="role-badge">{{ role }}</span>{% empty %}{% endfor %}
-        <a href="{% url 'password_change' %}">Senha</a>
-        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="link-button">Sair</button></form>
-      </div>
-    {% endif %}
+    <div class="topbar-inner">
+      <a class="brand" href="{% url 'dashboard' %}" aria-label="Ir para o painel">
+        <span class="brand-mark" aria-hidden="true">E</span>
+        <span class="brand-copy"><strong>Empório</strong><small>Gestão de Pedidos</small></span>
+      </a>
+
+      {% if user.is_authenticated %}
+        <nav class="nav nav-desktop" aria-label="Navegação principal">
+          <a href="{% url 'dashboard' %}">Painel</a>
+          {% if perms.orders.view_order %}<a href="{% url 'order-list' %}">Pedidos</a>{% endif %}
+          {% if perms.orders.view_company %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
+          {% if perms.orders.view_product %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
+          {% if perms.orders.view_monthlyclosing %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
+          {% if perms.orders.view_auditevent %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
+        </nav>
+
+        <div class="userbox userbox-desktop">
+          <span class="user-name">{{ user }}</span>
+          {% for role in current_roles %}<span class="role-badge">{{ role }}</span>{% empty %}{% endfor %}
+          <a href="{% url 'password_change' %}">Senha</a>
+          <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="link-button">Sair</button></form>
+        </div>
+
+        <details class="mobile-menu">
+          <summary aria-label="Abrir menu"><span>Menu</span><span class="menu-icon" aria-hidden="true">☰</span></summary>
+          <div class="mobile-menu-panel">
+            <div class="mobile-account">
+              <strong>{{ user }}</strong>
+              {% for role in current_roles %}<span class="role-badge">{{ role }}</span>{% empty %}{% endfor %}
+            </div>
+            <nav class="nav-mobile" aria-label="Navegação móvel">
+              <a href="{% url 'dashboard' %}">Painel</a>
+              {% if perms.orders.view_order %}<a href="{% url 'order-list' %}">Pedidos</a>{% endif %}
+              {% if perms.orders.view_company %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
+              {% if perms.orders.view_product %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
+              {% if perms.orders.view_monthlyclosing %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
+              {% if perms.orders.view_auditevent %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
+              <a href="{% url 'password_change' %}">Alterar senha</a>
+              <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="mobile-logout">Sair</button></form>
+            </nav>
+          </div>
+        </details>
+      {% endif %}
+    </div>
   </header>
 
   <main class="container">
