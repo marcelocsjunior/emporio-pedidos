@@ -62,6 +62,7 @@
 <section class="panel form-panel">
   <div class="panel-heading"><div><div class="eyebrow">Decisão</div><h2>Aprovação obrigatória do Atendimento</h2><p>Aprovar cria o pedido oficial de forma transacional e idempotente.</p></div></div>
   <div class="form-actions">
+    {% if can_start_review %}<form method="post" action="{% url 'customer_portal:request-start-review' customer_request.pk %}">{% csrf_token %}<button class="button" type="submit">Iniciar análise</button></form>{% endif %}
     <form method="post" action="{% url 'customer_portal:request-approve' customer_request.pk %}" onsubmit="return confirm('Aprovar e criar o pedido oficial?');">{% csrf_token %}<button class="button primary" type="submit">Aprovar e criar pedido</button></form>
   </div>
   <div class="detail-grid">
