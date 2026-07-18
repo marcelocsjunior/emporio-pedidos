@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -89,6 +89,14 @@ def make_request(data, *, user_key="customer", status=CustomerOrderRequest.Statu
     return customer_request
 
 
+def test_anonymous_portal_access_redirects_to_login(client):
+    response = client.get(reverse("customer_portal:request-list"))
+
+    assert response.status_code == 302
+    assert response.url.startswith(reverse("login"))
+    assert "next=" in response.url
+
+
 def test_login_and_root_redirect_customer_to_portal(client, portal_data):
     response = client.post(
         reverse("login"),
@@ -129,6 +137,28 @@ def test_form_rejects_delivery_location_from_another_company(portal_data):
     )
     assert not form.is_valid()
     assert "delivery_location" in form.errors
+
+
+def test_form_uses_django_local_date_for_same_day_delivery(monkeypatch, portal_data):
+    local_today = date.today() - timedelta(days=1)
+    monkeypatch.setattr("customer_portal.forms.timezone.localdate", lambda: local_today)
+
+    form = CustomerRequestForm(
+        data={
+            "creation_key": "b" * 32,
+            "delivery_date": local_today.isoformat(),
+            "delivery_time": "12:00",
+            "delivery_location": str(portal_data["location"].pk),
+            "notes": "",
+        },
+        instance=CustomerOrderRequest(
+            company=portal_data["company"],
+            requested_by=portal_data["customer"],
+        ),
+        company=portal_data["company"],
+    )
+
+    assert form.is_valid(), form.errors
 
 
 def test_submit_recalculates_current_server_price(portal_data):
