@@ -14,6 +14,7 @@ from .review_views import (
     RequestQueueView,
     RequestRejectView,
     RequestReviewView,
+    RequestStartReviewView,
 )
 
 app_name = "customer_portal"
@@ -27,6 +28,11 @@ urlpatterns = [
     path("portal/<uuid:pk>/cancelar/", PortalRequestCancelView.as_view(), name="request-cancel"),
     path("solicitacoes/", RequestQueueView.as_view(), name="request-queue"),
     path("solicitacoes/<uuid:pk>/", RequestReviewView.as_view(), name="request-review"),
+    path(
+        "solicitacoes/<uuid:pk>/iniciar-analise/",
+        RequestStartReviewView.as_view(),
+        name="request-start-review",
+    ),
     path(
         "solicitacoes/<uuid:pk>/correcao/",
         RequestCorrectionView.as_view(),
