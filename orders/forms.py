@@ -104,7 +104,16 @@ class OrderCreateForm(OrderForm):
     creation_key = forms.CharField(widget=forms.HiddenInput, min_length=32, max_length=64)
 
 
+class ProductChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, product: Product) -> str:
+        price = f"{product.unit_price:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        category = f" · {product.category}" if product.category else ""
+        return f"{product.name}{category} — R$ {price}"
+
+
 class OrderItemForm(OperationalModelForm):
+    product = ProductChoiceField(queryset=Product.objects.none())
+
     class Meta:
         model = OrderItem
         fields = ("product", "quantity")
