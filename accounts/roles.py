@@ -34,6 +34,11 @@ ORDER_READ = {
     *_model_permissions("orders", "orderstatushistory", ("view",)),
 }
 
+AI_FEEDBACK = {
+    *_model_permissions("intelligence", "airecommendation", ("view",)),
+    *_model_permissions("intelligence", "aifeedback", ("add", "change", "view")),
+}
+
 ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
     ROLE_ADMIN: {
         *_model_permissions("accounts", "user", ("add", "change", "delete", "view")),
@@ -44,6 +49,17 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
         *_model_permissions("orders", "orderstatushistory", ("add", "view")),
         *_model_permissions("orders", "monthlyclosing", ("add", "change", "delete", "view")),
         *_model_permissions("orders", "auditevent", ("view",)),
+        *_model_permissions("intelligence", "aievent", ("add", "change", "view")),
+        *_model_permissions("intelligence", "aianalysisrun", ("view",)),
+        *_model_permissions("intelligence", "airecommendation", ("add", "change", "view")),
+        *_model_permissions("intelligence", "aifeedback", ("add", "change", "view")),
+        *_model_permissions("intelligence", "aipromptversion", ("add", "change", "view")),
+        *_model_permissions("intelligence", "aiusage", ("view",)),
+        ("intelligence", "view_ai_delay"),
+        ("intelligence", "view_ai_duplicate"),
+        ("intelligence", "view_ai_production"),
+        ("intelligence", "view_ai_finance"),
+        ("intelligence", "process_ai_events"),
     },
     ROLE_ATTENDANCE: {
         *_model_permissions("orders", "company", ("add", "change", "view")),
@@ -52,21 +68,31 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
         *_model_permissions("orders", "orderitem", ("add", "change", "delete", "view")),
         *_model_permissions("orders", "orderstatushistory", ("add", "view")),
         *_model_permissions("orders", "monthlyclosing", ("view",)),
+        *AI_FEEDBACK,
+        ("intelligence", "view_ai_delay"),
+        ("intelligence", "view_ai_duplicate"),
     },
     ROLE_PRODUCTION: {
         *ORDER_READ,
         *_model_permissions("orders", "order", ("change",)),
         *_model_permissions("orders", "orderstatushistory", ("add",)),
+        *AI_FEEDBACK,
+        ("intelligence", "view_ai_delay"),
+        ("intelligence", "view_ai_production"),
     },
     ROLE_EXPEDITION: {
         *ORDER_READ,
         *_model_permissions("orders", "order", ("change",)),
         *_model_permissions("orders", "orderstatushistory", ("add",)),
+        *AI_FEEDBACK,
+        ("intelligence", "view_ai_delay"),
     },
     ROLE_FINANCE: {
         *ORDER_READ,
         *_model_permissions("orders", "monthlyclosing", ("add", "change", "view")),
         *_model_permissions("orders", "auditevent", ("view",)),
+        *AI_FEEDBACK,
+        ("intelligence", "view_ai_finance"),
     },
 }
 
@@ -76,7 +102,7 @@ def ensure_roles(*, strict: bool = True) -> dict[str, Group]:
     available = {
         (permission.content_type.app_label, permission.codename): permission
         for permission in Permission.objects.select_related("content_type").filter(
-            content_type__app_label__in={"accounts", "orders"}
+            content_type__app_label__in={"accounts", "orders", "intelligence"}
         )
     }
     expected = set().union(*ROLE_PERMISSION_MAP.values())
@@ -88,13 +114,11 @@ def ensure_roles(*, strict: bool = True) -> dict[str, Group]:
     groups: dict[str, Group] = {}
     for role_name, permission_specs in ROLE_PERMISSION_MAP.items():
         group, _ = Group.objects.get_or_create(name=role_name)
-        group.permissions.set(
-            available[spec] for spec in permission_specs if spec in available
-        )
+        group.permissions.set(available[spec] for spec in permission_specs if spec in available)
         groups[role_name] = group
     return groups
 
 
 def bootstrap_roles_after_migrate(sender, **kwargs) -> None:
-    if sender.name == "orders":
+    if sender.name in {"orders", "intelligence"}:
         ensure_roles(strict=False)

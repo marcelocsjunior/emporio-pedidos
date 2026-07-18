@@ -32,6 +32,7 @@ class CompanyForm(OperationalModelForm):
             "city",
             "customer_type",
             "payment_terms",
+            "is_demo",
             "notes",
         )
         widgets = {"notes": forms.Textarea(attrs={"rows": 3})}
