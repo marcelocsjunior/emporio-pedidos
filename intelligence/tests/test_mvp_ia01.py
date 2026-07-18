@@ -87,6 +87,11 @@ def test_company_form_exposes_demo_flag():
     assert form.is_valid(), form.errors
     company = form.save()
     assert company.is_demo is True
+    audit = AuditEvent.objects.get(
+        action="company.data_context_assigned",
+        entity_id=str(company.pk),
+    )
+    assert audit.payload == {"from": None, "to": True}
 
 
 def test_sanitizer_removes_sensitive_identifiers():
@@ -275,3 +280,82 @@ def test_stale_processing_event_is_recovered():
     assert event.status == AIEvent.Status.PENDING
     assert event.locked_at is None
     assert event.last_error_code == "stale_lock_recovered"
+
+
+@override_settings(AI_ENABLED=False, AI_MODE="pilot")
+def test_company_context_change_creates_new_idempotent_event():
+    company = Company.objects.create(name="Cliente alternável", is_demo=False)
+    fixed_now = timezone.make_aware(
+        datetime.combine(timezone.localdate(), time(9, 40)),
+        timezone.get_current_timezone(),
+    )
+    order = create_order(company=company, delivery_time=time(10, 0))
+
+    enqueue_due_events(now=fixed_now)
+    process_available_events(limit=20)
+    company.is_demo = True
+    company.save(update_fields=("is_demo", "updated_at"))
+    enqueue_due_events(now=fixed_now)
+    process_available_events(limit=20)
+
+    contexts = set(
+        AIRecommendation.objects.filter(
+            category=AIRecommendation.Category.DELAY,
+            source_id=str(order.pk),
+        ).values_list("data_context", flat=True)
+    )
+    assert contexts == {DataContext.REAL, DataContext.DEMO}
+    assert AIRecommendation.objects.filter(
+        category=AIRecommendation.Category.DELAY,
+        source_id=str(order.pk),
+        status=AIRecommendation.Status.EXPIRED,
+    ).count() == 1
+
+
+@override_settings(AI_MODE="pilot")
+def test_administrator_can_requeue_failed_event(client):
+    user = get_user_model().objects.create_superuser(
+        username="admin-retry",
+        password="senha-forte-123",
+    )
+    event = AIEvent.objects.create(
+        event_type=AIEvent.EventType.DELAY_RISK,
+        data_context=DataContext.REAL,
+        source_type="orders.order",
+        source_id="retry-source",
+        payload={"candidate": {}},
+        idempotency_key="retry-event",
+        status=AIEvent.Status.FAILED,
+        attempts=5,
+        last_error_code="http_429",
+    )
+    recommendation = AIRecommendation.objects.create(
+        event=event,
+        category=AIRecommendation.Category.SYSTEM,
+        severity=AIRecommendation.Severity.CRITICAL,
+        data_context=DataContext.REAL,
+        source_type="intelligence.aievent",
+        source_id=str(event.pk),
+        title="Falha definitiva",
+        summary="Limite de tentativas atingido.",
+        evidence={"error_code": "http_429"},
+        confidence=Decimal("1.000"),
+        idempotency_key="retry-system-alert",
+    )
+    client.force_login(user)
+
+    response = client.post(
+        reverse("intelligence:retry", kwargs={"pk": recommendation.pk}),
+    )
+
+    assert response.status_code == 302
+    event.refresh_from_db()
+    recommendation.refresh_from_db()
+    assert event.status == AIEvent.Status.PENDING
+    assert event.attempts == 0
+    assert event.last_error_code == ""
+    assert recommendation.status == AIRecommendation.Status.EXPIRED
+    assert AuditEvent.objects.filter(
+        action="intelligence.failed_event_requeued",
+        actor=user,
+    ).exists()
