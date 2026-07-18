@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Conferir {{ customer_request.protocol }} — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Conferência manual</div>
+    <h1>{{ customer_request.protocol }}</h1>
+    <p>{{ customer_request.company.name }} · <span class="status-badge status-{{ customer_request.status }}">{{ customer_request.get_status_display }}</span></p>
+  </div>
+  <a class="button ghost" href="{% url 'customer_portal:request-queue' %}">Voltar à fila</a>
+</div>
+
+{% if duplicates.requests or duplicates.orders %}
+<div class="message warning">
+  <strong>Possível duplicidade:</strong> existem registros da mesma empresa, data e valor.
+  {% for item in duplicates.requests %}<div>Solicitação {{ item.protocol }} — {{ item.get_status_display }}</div>{% endfor %}
+  {% for item in duplicates.orders %}<div>Pedido {{ item.number }} — {{ item.get_status_display }}</div>{% endfor %}
+</div>
+{% endif %}
+
+{% if customer_request.review_notes %}<div class="message warning"><strong>Retorno registrado:</strong> {{ customer_request.review_notes }}</div>{% endif %}
+
+<div class="detail-grid">
+  <section class="panel">
+    <div class="panel-heading"><div><div class="eyebrow">Cliente</div><h2>Identificação</h2></div></div>
+    <dl class="detail-list">
+      <div><dt>Empresa</dt><dd>{{ customer_request.company.name }} — {{ customer_request.company.code }}</dd></div>
+      <div><dt>Usuário</dt><dd>{{ customer_request.requested_by }}</dd></div>
+      <div><dt>Criada em</dt><dd>{{ customer_request.created_at|date:"d/m/Y H:i" }}</dd></div>
+      <div><dt>Enviada em</dt><dd>{% if customer_request.submitted_at %}{{ customer_request.submitted_at|date:"d/m/Y H:i" }}{% else %}—{% endif %}</dd></div>
+    </dl>
+  </section>
+  <section class="panel">
+    <div class="panel-heading"><div><div class="eyebrow">Entrega</div><h2>Dados solicitados</h2></div></div>
+    <dl class="detail-list">
+      <div><dt>Data</dt><dd>{{ customer_request.delivery_date|date:"d/m/Y" }}</dd></div>
+      <div><dt>Horário</dt><dd>{% if customer_request.delivery_time %}{{ customer_request.delivery_time|time:"H:i" }}{% else %}A combinar{% endif %}</dd></div>
+      <div><dt>Local</dt><dd>{{ customer_request.delivery_location.label }} — {{ customer_request.delivery_location.full_address }}</dd></div>
+      <div><dt>Observações</dt><dd>{{ customer_request.notes|default:"Sem observações"|linebreaksbr }}</dd></div>
+    </dl>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-heading"><div><div class="eyebrow">Composição</div><h2>Itens e valores calculados pelo servidor</h2></div></div>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Produto</th><th>Quantidade</th><th>Unitário</th><th>Total</th></tr></thead>
+      <tbody>
+      {% for item in customer_request.items.all %}<tr><td>{{ item.product_name }}</td><td>{{ item.quantity }}</td><td>R$ {{ item.unit_price|floatformat:2 }}</td><td>R$ {{ item.line_total|floatformat:2 }}</td></tr>{% endfor %}
+      </tbody>
+      <tfoot><tr><th colspan="3">Total</th><th>R$ {{ customer_request.total_amount|floatformat:2 }}</th></tr></tfoot>
+    </table>
+  </div>
+</section>
+
+{% if customer_request.converted_order %}
+<div class="message success"><strong>Pedido oficial criado:</strong> <a href="{% url 'order-detail' customer_request.converted_order.pk %}">{{ customer_request.converted_order.number }}</a> — {{ customer_request.converted_order.get_status_display }}</div>
+{% endif %}
+
+{% if reviewable %}
+<section class="panel form-panel">
+  <div class="panel-heading"><div><div class="eyebrow">Decisão</div><h2>Aprovação obrigatória do Atendimento</h2><p>Aprovar cria o pedido oficial de forma transacional e idempotente.</p></div></div>
+  <div class="form-actions">
+    {% if can_start_review %}<form method="post" action="{% url 'customer_portal:request-start-review' customer_request.pk %}">{% csrf_token %}<button class="button" type="submit">Iniciar análise</button></form>{% endif %}
+    <form method="post" action="{% url 'customer_portal:request-approve' customer_request.pk %}" onsubmit="return confirm('Aprovar e criar o pedido oficial?');">{% csrf_token %}<button class="button primary" type="submit">Aprovar e criar pedido</button></form>
+  </div>
+  <div class="detail-grid">
+    <form method="post" action="{% url 'customer_portal:request-correction' customer_request.pk %}" class="operational-form">{% csrf_token %}<div class="field-group"><label for="id_reason_correction">Correção necessária</label><textarea class="form-control" id="id_reason_correction" name="reason" rows="3" required></textarea></div><button class="button" type="submit">Solicitar correção</button></form>
+    <form method="post" action="{% url 'customer_portal:request-reject' customer_request.pk %}" class="operational-form">{% csrf_token %}<div class="field-group"><label for="id_reason_reject">Motivo da rejeição</label><textarea class="form-control" id="id_reason_reject" name="reason" rows="3" required></textarea></div><button class="button danger-outline" type="submit">Rejeitar solicitação</button></form>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

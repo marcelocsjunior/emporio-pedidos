@@ -39,6 +39,14 @@ AI_FEEDBACK = {
     *_model_permissions("intelligence", "aifeedback", ("add", "change", "view")),
 }
 
+PORTAL_REVIEW = {
+    *_model_permissions("customer_portal", "customerportalaccess", ("view",)),
+    *_model_permissions("customer_portal", "customerdeliverylocation", ("view",)),
+    *_model_permissions("customer_portal", "customerorderrequest", ("change", "view")),
+    *_model_permissions("customer_portal", "customerorderrequestitem", ("view",)),
+    ("customer_portal", "review_customerorderrequest"),
+}
+
 ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
     ROLE_ADMIN: {
         *_model_permissions("accounts", "user", ("add", "change", "delete", "view")),
@@ -55,11 +63,32 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
         *_model_permissions("intelligence", "aifeedback", ("add", "change", "view")),
         *_model_permissions("intelligence", "aipromptversion", ("add", "change", "view")),
         *_model_permissions("intelligence", "aiusage", ("view",)),
+        *_model_permissions(
+            "customer_portal",
+            "customerportalaccess",
+            ("add", "change", "delete", "view"),
+        ),
+        *_model_permissions(
+            "customer_portal",
+            "customerdeliverylocation",
+            ("add", "change", "delete", "view"),
+        ),
+        *_model_permissions(
+            "customer_portal",
+            "customerorderrequest",
+            ("add", "change", "delete", "view"),
+        ),
+        *_model_permissions(
+            "customer_portal",
+            "customerorderrequestitem",
+            ("add", "change", "delete", "view"),
+        ),
         ("intelligence", "view_ai_delay"),
         ("intelligence", "view_ai_duplicate"),
         ("intelligence", "view_ai_production"),
         ("intelligence", "view_ai_finance"),
         ("intelligence", "process_ai_events"),
+        ("customer_portal", "review_customerorderrequest"),
     },
     ROLE_ATTENDANCE: {
         *_model_permissions("orders", "company", ("add", "change", "view")),
@@ -68,6 +97,7 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
         *_model_permissions("orders", "orderitem", ("add", "change", "delete", "view")),
         *_model_permissions("orders", "orderstatushistory", ("add", "view")),
         *_model_permissions("orders", "monthlyclosing", ("view",)),
+        *PORTAL_REVIEW,
         *AI_FEEDBACK,
         ("intelligence", "view_ai_delay"),
         ("intelligence", "view_ai_duplicate"),
@@ -102,7 +132,12 @@ def ensure_roles(*, strict: bool = True) -> dict[str, Group]:
     available = {
         (permission.content_type.app_label, permission.codename): permission
         for permission in Permission.objects.select_related("content_type").filter(
-            content_type__app_label__in={"accounts", "orders", "intelligence"}
+            content_type__app_label__in={
+                "accounts",
+                "orders",
+                "intelligence",
+                "customer_portal",
+            }
         )
     }
     expected = set().union(*ROLE_PERMISSION_MAP.values())
@@ -120,5 +155,5 @@ def ensure_roles(*, strict: bool = True) -> dict[str, Group]:
 
 
 def bootstrap_roles_after_migrate(sender, **kwargs) -> None:
-    if sender.name in {"orders", "intelligence"}:
+    if sender.name in {"orders", "intelligence", "customer_portal"}:
         ensure_roles(strict=False)

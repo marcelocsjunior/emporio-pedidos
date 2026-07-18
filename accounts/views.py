@@ -1,11 +1,24 @@
 from django.contrib import messages
 from django.contrib.auth.views import LoginView, PasswordChangeDoneView, PasswordChangeView
-from django.urls import reverse_lazy
+from django.core.exceptions import ObjectDoesNotExist
+from django.urls import reverse, reverse_lazy
 
 
 class EmporioLoginView(LoginView):
     template_name = "registration/login.html"
     redirect_authenticated_user = True
+
+    def get_success_url(self) -> str:
+        user = self.request.user
+        if user.has_perm("orders.view_order"):
+            return reverse("dashboard")
+        try:
+            access = user.customer_portal_access
+        except ObjectDoesNotExist:
+            return super().get_success_url()
+        if access.active and access.company.active:
+            return reverse("customer_portal:request-list")
+        return super().get_success_url()
 
 
 class EmporioPasswordChangeView(PasswordChangeView):

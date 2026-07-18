@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "accounts.apps.AccountsConfig",
     "orders",
     "intelligence.apps.IntelligenceConfig",
+    "customer_portal.apps.CustomerPortalConfig",
 ]
 
 MIDDLEWARE = [
@@ -40,6 +41,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "customer_portal.middleware.CustomerPortalBoundaryMiddleware",
     "accounts.middleware.ForcePasswordChangeMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

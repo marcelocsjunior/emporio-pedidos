@@ -1,0 +1,35 @@
+{% extends "customer_portal/base.html" %}
+{% block title %}Minhas solicitações — Empório{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Portal B2B</div>
+    <h1>Minhas solicitações</h1>
+    <p>Acompanhe o que foi enviado e o pedido criado após a conferência do Atendimento.</p>
+  </div>
+  <a class="button primary" href="{% url 'customer_portal:request-create' %}">Nova solicitação</a>
+</div>
+
+<section class="panel">
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Protocolo</th><th>Entrega</th><th>Status</th><th>Total</th><th>Pedido</th><th></th></tr></thead>
+      <tbody>
+      {% for item in customer_requests %}
+        <tr>
+          <td><strong>{{ item.protocol }}</strong><br><small>{{ item.created_at|date:"d/m/Y H:i" }}</small></td>
+          <td>{{ item.delivery_date|date:"d/m/Y" }}{% if item.delivery_time %} às {{ item.delivery_time|time:"H:i" }}{% endif %}</td>
+          <td><span class="status-badge status-{{ item.status }}">{{ item.get_status_display }}</span></td>
+          <td>R$ {{ item.total_amount|floatformat:2 }}</td>
+          <td>{% if item.converted_order %}{{ item.converted_order.number }} — {{ item.converted_order.get_status_display }}{% else %}—{% endif %}</td>
+          <td><a class="button compact ghost" href="{% url 'customer_portal:request-detail' item.pk %}">Abrir</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="empty-state">Nenhuma solicitação registrada.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% include "orders/pagination.html" %}
+{% endblock %}

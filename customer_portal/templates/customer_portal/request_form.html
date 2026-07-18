@@ -1,0 +1,80 @@
+{% extends "customer_portal/base.html" %}
+{% load static %}
+{% block title %}{% if creating %}Nova solicitação{% else %}Editar {{ customer_request.protocol }}{% endif %} — Empório{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Portal B2B</div>
+    <h1>{% if creating %}Nova solicitação{% else %}Editar {{ customer_request.protocol }}{% endif %}</h1>
+    <p>Os valores são calculados pelo sistema. O pedido oficial será criado somente após aprovação do Atendimento.</p>
+  </div>
+  <a class="button ghost" href="{% if creating %}{% url 'customer_portal:request-list' %}{% else %}{% url 'customer_portal:request-detail' customer_request.pk %}{% endif %}">Voltar</a>
+</div>
+
+<form method="post" class="operational-form" id="order-form" novalidate>
+  {% csrf_token %}
+  {{ form.creation_key }}
+  {% for error in form.creation_key.errors %}<div class="form-errors">{{ error }}</div>{% endfor %}
+  {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+
+  <section class="panel form-panel">
+    <div class="panel-heading"><div><div class="eyebrow">Entrega</div><h2>Dados da solicitação</h2></div></div>
+    <div class="form-grid two-columns">
+      {% for field in form %}
+        {% if field.name != "creation_key" %}
+        <div class="field-group {% if field.name == 'notes' %}full-width{% endif %}">
+          <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>
+          {{ field }}
+          {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel form-panel">
+    <div class="panel-heading">
+      <div><div class="eyebrow">Composição</div><h2>Itens solicitados</h2><p>O preço vigente será recalculado no servidor no momento do envio.</p></div>
+      <button class="button" type="button" id="add-item">Adicionar item</button>
+    </div>
+    {{ formset.management_form }}
+    {% if formset.non_form_errors %}<div class="form-errors">{{ formset.non_form_errors }}</div>{% endif %}
+    <div class="order-items" id="order-items">
+      {% for item_form in formset.forms %}
+      <div class="order-item-row{% if item_form.DELETE.value %} is-removed{% endif %}" data-item-row>
+        {{ item_form.id }}
+        <div class="field-group item-product">
+          <label for="{{ item_form.product.id_for_label }}">Produto *</label>
+          {{ item_form.product }}
+          {% for error in item_form.product.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="field-group item-quantity">
+          <label for="{{ item_form.quantity.id_for_label }}">Quantidade *</label>
+          {{ item_form.quantity }}
+          {% for error in item_form.quantity.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="item-remove">
+          <span class="delete-field">{{ item_form.DELETE }}</span>
+          <button class="button compact danger-outline" type="button" data-remove-item>Remover</button>
+        </div>
+        {% if item_form.non_field_errors %}<div class="form-errors item-errors">{{ item_form.non_field_errors }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <template id="empty-item-template">
+      <div class="order-item-row" data-item-row>
+        {{ formset.empty_form.id }}
+        <div class="field-group item-product"><label for="{{ formset.empty_form.product.id_for_label }}">Produto *</label>{{ formset.empty_form.product }}</div>
+        <div class="field-group item-quantity"><label for="{{ formset.empty_form.quantity.id_for_label }}">Quantidade *</label>{{ formset.empty_form.quantity }}</div>
+        <div class="item-remove"><span class="delete-field">{{ formset.empty_form.DELETE }}</span><button class="button compact danger-outline" type="button" data-remove-item>Remover</button></div>
+      </div>
+    </template>
+  </section>
+
+  <div class="form-actions sticky-actions">
+    <a class="button ghost" href="{% if creating %}{% url 'customer_portal:request-list' %}{% else %}{% url 'customer_portal:request-detail' customer_request.pk %}{% endif %}">Cancelar</a>
+    <button class="button primary" type="submit">Salvar rascunho</button>
+  </div>
+</form>
+{% endblock %}
+{% block extra_scripts %}<script src="{% static 'js/order_form.js' %}" defer></script>{% endblock %}

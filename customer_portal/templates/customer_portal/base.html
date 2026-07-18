@@ -1,0 +1,52 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e3829">
+  <title>{% block title %}Portal do Cliente — Empório{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/mvp03.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="{% url 'customer_portal:request-list' %}">
+        <span class="brand-mark" aria-hidden="true">E</span>
+        <span class="brand-copy"><strong>Empório</strong><small>Portal do Cliente</small></span>
+      </a>
+      <nav class="nav nav-desktop" aria-label="Portal do cliente">
+        <a href="{% url 'customer_portal:request-list' %}">Minhas solicitações</a>
+        <a href="{% url 'customer_portal:request-create' %}">Nova solicitação</a>
+      </nav>
+      <div class="userbox userbox-desktop">
+        <span class="user-name">{{ user }}</span>
+        <a href="{% url 'password_change' %}">Senha</a>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="link-button">Sair</button></form>
+      </div>
+      <details class="mobile-menu">
+        <summary aria-label="Abrir menu"><span>Menu</span><span class="menu-icon" aria-hidden="true">☰</span></summary>
+        <div class="mobile-menu-panel">
+          <div class="mobile-account"><strong>{{ user }}</strong></div>
+          <nav class="nav-mobile" aria-label="Navegação móvel">
+            <a href="{% url 'customer_portal:request-list' %}">Minhas solicitações</a>
+            <a href="{% url 'customer_portal:request-create' %}">Nova solicitação</a>
+            <a href="{% url 'password_change' %}">Alterar senha</a>
+            <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="mobile-logout">Sair</button></form>
+          </nav>
+        </div>
+      </details>
+    </div>
+  </header>
+  <main class="container">
+    {% if messages %}
+      <div class="messages" aria-live="polite">
+        {% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>
