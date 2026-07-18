@@ -69,7 +69,7 @@
     <form method="post" action="{% url 'customer_portal:request-submit' customer_request.pk %}">{% csrf_token %}<button class="button primary" type="submit">Enviar para conferência</button></form>
     {% endif %}
     {% if can_cancel %}
-    <form method="post" action="{% url 'customer_portal:request-cancel' customer_request.pk %}">{% csrf_token %}<button class="button danger-outline" type="submit">Cancelar solicitação</button></form>
+    <form method="post" action="{% url 'customer_portal:request-cancel' customer_request.pk %}" onsubmit="return confirm('Cancelar esta solicitação?');">{% csrf_token %}<button class="button danger-outline" type="submit">Cancelar solicitação</button></form>
     {% endif %}
   </div>
 </div>
