@@ -22,6 +22,7 @@
       {% if user.is_authenticated %}
         <nav class="nav nav-desktop" aria-label="Navegação principal">
           <a href="{% url 'dashboard' %}">Painel</a>
+          {% if perms.customer_portal.review_customerorderrequest %}<a href="{% url 'customer_portal:request-queue' %}">Solicitações</a>{% endif %}
           {% if perms.orders.view_order %}<a href="{% url 'order-list' %}">Pedidos</a>{% endif %}
           {% if perms.orders.view_company %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
           {% if perms.orders.view_product %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
@@ -46,6 +47,7 @@
             </div>
             <nav class="nav-mobile" aria-label="Navegação móvel">
               <a href="{% url 'dashboard' %}">Painel</a>
+              {% if perms.customer_portal.review_customerorderrequest %}<a href="{% url 'customer_portal:request-queue' %}">Solicitações</a>{% endif %}
               {% if perms.orders.view_order %}<a href="{% url 'order-list' %}">Pedidos</a>{% endif %}
               {% if perms.orders.view_company %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
               {% if perms.orders.view_product %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
