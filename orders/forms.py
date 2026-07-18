@@ -164,7 +164,9 @@ class BaseOrderItemFormSet(BaseInlineFormSet):
             if not product or not quantity:
                 raise forms.ValidationError("Preencha produto e quantidade em cada item utilizado.")
             if product.pk in product_ids:
-                raise forms.ValidationError("O mesmo produto não pode aparecer duas vezes no pedido.")
+                raise forms.ValidationError(
+                    "O mesmo produto não pode aparecer duas vezes no pedido."
+                )
             product_ids.add(product.pk)
             valid_items += 1
 
