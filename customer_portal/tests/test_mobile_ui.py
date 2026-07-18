@@ -2,18 +2,16 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
-from django.contrib.auth import get_user_model
-from django.contrib.staticfiles import finders
-from django.urls import reverse
-from django.utils import timezone
-
 from customer_portal.models import (
     CustomerDeliveryLocation,
     CustomerOrderRequest,
     CustomerPortalAccess,
 )
+from django.contrib.auth import get_user_model
+from django.contrib.staticfiles import finders
+from django.urls import reverse
+from django.utils import timezone
 from orders.models import Company
-
 
 pytestmark = pytest.mark.django_db
 
