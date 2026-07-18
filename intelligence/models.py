@@ -138,10 +138,10 @@ class AIRecommendation(TimeStampedModel):
         EXPIRED = "expired", "Expirada"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    event = models.OneToOneField(
+    event = models.ForeignKey(
         AIEvent,
         on_delete=models.CASCADE,
-        related_name="recommendation",
+        related_name="recommendations",
         verbose_name="evento",
     )
     category = models.CharField("categoria", max_length=20, choices=Category.choices)
