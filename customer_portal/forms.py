@@ -6,6 +6,7 @@ from decimal import Decimal
 from django import forms
 from django.db.models import Q
 from django.forms import BaseInlineFormSet, inlineformset_factory
+from django.utils import timezone
 
 from orders.models import Product
 
@@ -44,7 +45,7 @@ class CustomerRequestForm(PortalModelForm):
 
     def clean_delivery_date(self) -> date:
         value = self.cleaned_data["delivery_date"]
-        if value < date.today():
+        if value < timezone.localdate():
             raise forms.ValidationError("A data de entrega não pode estar no passado.")
         return value
 
