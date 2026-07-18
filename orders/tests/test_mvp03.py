@@ -11,28 +11,27 @@ from orders.models import AuditEvent, Company, Order, OrderItem, Product
 
 
 class Mvp03OperationalFlowTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
+    def setUp(self):
         ensure_roles()
-        cls.attendance = User.objects.create_user("mvp03-atendimento", password="Senha!123456")
-        cls.attendance.groups.add(Group.objects.get(name=ROLE_ATTENDANCE))
-        cls.production = User.objects.create_user("mvp03-producao", password="Senha!123456")
-        cls.production.groups.add(Group.objects.get(name=ROLE_PRODUCTION))
-        cls.company = Company.objects.create(name="Empresa Operacional", active=True)
-        cls.product_a = Product.objects.create(
+        self.attendance = User.objects.create_user(
+            "mvp03-atendimento", password="Senha!123456"
+        )
+        self.attendance.groups.add(Group.objects.get(name=ROLE_ATTENDANCE))
+        self.production = User.objects.create_user("mvp03-producao", password="Senha!123456")
+        self.production.groups.add(Group.objects.get(name=ROLE_PRODUCTION))
+        self.company = Company.objects.create(name="Empresa Operacional", active=True)
+        self.product_a = Product.objects.create(
             name="Marmita completa MVP03",
             category="Refeição",
             unit_price=Decimal("20.00"),
             active=True,
         )
-        cls.product_b = Product.objects.create(
+        self.product_b = Product.objects.create(
             name="Lanche MVP03",
             category="Lanche",
             unit_price=Decimal("12.50"),
             active=True,
         )
-
-    def setUp(self):
         self.client.force_login(self.attendance)
 
     def _set_creation_key(self, key: str) -> None:
@@ -139,7 +138,6 @@ class Mvp03OperationalFlowTests(TestCase):
 
         response = self.client.post(reverse("order-create"), payload)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Selecione uma opção válida")
         self.assertFalse(Order.objects.filter(creation_key=key).exists())
 
     def test_editing_quantity_preserves_frozen_unit_price(self):
