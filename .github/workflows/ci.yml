@@ -17,5 +17,10 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: python manage.py check
       - run: python manage.py makemigrations --check --dry-run
-      - run: pytest -q --tb=short --disable-warnings
+      - name: Test MVP-03 operational flow
+        run: pytest -q orders/tests/test_mvp03.py --tb=line --disable-warnings
+      - name: Test existing domain and GUI
+        run: pytest -q orders/tests/test_domain.py orders/tests/test_gui.py --tb=line --disable-warnings
+      - name: Test remaining suite
+        run: pytest -q --ignore=orders/tests/test_mvp03.py --ignore=orders/tests/test_domain.py --ignore=orders/tests/test_gui.py --tb=line --disable-warnings
       - run: ruff check .
