@@ -1,62 +1,76 @@
 {% extends "customer_portal/base.html" %}
 {% block title %}{{ customer_request.protocol }} — Empório{% endblock %}
 {% block content %}
-<div class="page-heading">
-  <div>
-    <div class="eyebrow">Solicitação do cliente</div>
-    <h1>{{ customer_request.protocol }}</h1>
-    <p><span class="status-badge status-{{ customer_request.status }}">{{ customer_request.get_status_display }}</span></p>
+<div class="portal-detail-page">
+  <div class="page-heading portal-detail-heading">
+    <div>
+      <div class="eyebrow">Solicitação do cliente</div>
+      <h1>{{ customer_request.protocol }}</h1>
+      <p><span class="status-badge status-{{ customer_request.status }}">{{ customer_request.get_status_display }}</span></p>
+    </div>
+    <a class="button ghost portal-detail-back" href="{% url 'customer_portal:request-list' %}">Voltar</a>
   </div>
-  <a class="button ghost" href="{% url 'customer_portal:request-list' %}">Voltar</a>
-</div>
 
-{% if customer_request.review_notes %}
-<div class="message warning"><strong>Retorno do Atendimento:</strong> {{ customer_request.review_notes }}</div>
-{% endif %}
+  {% if customer_request.review_notes %}
+  <div class="message warning"><strong>Retorno do Atendimento:</strong> {{ customer_request.review_notes }}</div>
+  {% endif %}
 
-<div class="detail-grid">
-  <section class="panel">
-    <div class="panel-heading"><div><div class="eyebrow">Entrega</div><h2>Dados solicitados</h2></div></div>
-    <dl class="detail-list">
-      <div><dt>Data</dt><dd>{{ customer_request.delivery_date|date:"d/m/Y" }}</dd></div>
-      <div><dt>Horário</dt><dd>{% if customer_request.delivery_time %}{{ customer_request.delivery_time|time:"H:i" }}{% else %}A combinar{% endif %}</dd></div>
-      <div><dt>Local</dt><dd>{{ customer_request.delivery_location.label }} — {{ customer_request.delivery_location.full_address }}</dd></div>
-      <div><dt>Observações</dt><dd>{{ customer_request.notes|default:"Sem observações"|linebreaksbr }}</dd></div>
-    </dl>
+  <div class="detail-grid portal-detail-grid">
+    <section class="panel portal-detail-panel portal-detail-delivery">
+      <div class="panel-heading"><div><div class="eyebrow">Entrega</div><h2>Dados solicitados</h2></div></div>
+      <dl class="detail-list portal-detail-list">
+        <div><dt>Data</dt><dd>{{ customer_request.delivery_date|date:"d/m/Y" }}</dd></div>
+        <div><dt>Horário</dt><dd>{% if customer_request.delivery_time %}{{ customer_request.delivery_time|time:"H:i" }}{% else %}A combinar{% endif %}</dd></div>
+        <div><dt>Local</dt><dd>{{ customer_request.delivery_location.label }} — {{ customer_request.delivery_location.full_address }}</dd></div>
+        <div><dt>Observações</dt><dd>{{ customer_request.notes|default:"Sem observações"|linebreaksbr }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="panel portal-detail-panel portal-detail-progress">
+      <div class="panel-heading"><div><div class="eyebrow">Conferência</div><h2>Andamento</h2></div></div>
+      <dl class="detail-list portal-detail-list">
+        <div><dt>Criada em</dt><dd>{{ customer_request.created_at|date:"d/m/Y H:i" }}</dd></div>
+        <div><dt>Enviada em</dt><dd>{% if customer_request.submitted_at %}{{ customer_request.submitted_at|date:"d/m/Y H:i" }}{% else %}Ainda não enviada{% endif %}</dd></div>
+        <div><dt>Total</dt><dd><strong>R$ {{ customer_request.total_amount|floatformat:2 }}</strong></dd></div>
+        <div><dt>Pedido oficial</dt><dd>{% if customer_request.converted_order %}<strong>{{ customer_request.converted_order.number }}</strong><br>{{ customer_request.converted_order.get_status_display }}{% else %}Aguardando aprovação{% endif %}</dd></div>
+      </dl>
+    </section>
+  </div>
+
+  <section class="panel portal-detail-items-panel">
+    <div class="panel-heading"><div><div class="eyebrow">Itens</div><h2>Composição</h2></div></div>
+    <div class="table-wrap portal-detail-items-wrap">
+      <table class="responsive-table portal-detail-items-table" aria-label="Composição da solicitação">
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Quantidade</th>
+            <th>Unitário</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item in customer_request.items.all %}
+          <tr>
+            <td data-label="Produto">{{ item.product_name }}</td>
+            <td data-label="Quantidade">{{ item.quantity }}</td>
+            <td data-label="Unitário">R$ {{ item.unit_price|floatformat:2 }}</td>
+            <td data-label="Total">R$ {{ item.line_total|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
 
-  <section class="panel">
-    <div class="panel-heading"><div><div class="eyebrow">Conferência</div><h2>Andamento</h2></div></div>
-    <dl class="detail-list">
-      <div><dt>Criada em</dt><dd>{{ customer_request.created_at|date:"d/m/Y H:i" }}</dd></div>
-      <div><dt>Enviada em</dt><dd>{% if customer_request.submitted_at %}{{ customer_request.submitted_at|date:"d/m/Y H:i" }}{% else %}Ainda não enviada{% endif %}</dd></div>
-      <div><dt>Total</dt><dd><strong>R$ {{ customer_request.total_amount|floatformat:2 }}</strong></dd></div>
-      <div><dt>Pedido oficial</dt><dd>{% if customer_request.converted_order %}<strong>{{ customer_request.converted_order.number }}</strong><br>{{ customer_request.converted_order.get_status_display }}{% else %}Aguardando aprovação{% endif %}</dd></div>
-    </dl>
-  </section>
-</div>
-
-<section class="panel">
-  <div class="panel-heading"><div><div class="eyebrow">Itens</div><h2>Composição</h2></div></div>
-  <div class="table-wrapper">
-    <table>
-      <thead><tr><th>Produto</th><th>Quantidade</th><th>Unitário</th><th>Total</th></tr></thead>
-      <tbody>
-      {% for item in customer_request.items.all %}
-        <tr><td>{{ item.product_name }}</td><td>{{ item.quantity }}</td><td>R$ {{ item.unit_price|floatformat:2 }}</td><td>R$ {{ item.line_total|floatformat:2 }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <div class="form-actions portal-detail-actions">
+    {% if can_edit %}<a class="button" href="{% url 'customer_portal:request-update' customer_request.pk %}">Editar rascunho</a>{% endif %}
+    {% if can_edit %}
+    <form method="post" action="{% url 'customer_portal:request-submit' customer_request.pk %}">{% csrf_token %}<button class="button primary" type="submit">Enviar para conferência</button></form>
+    {% endif %}
+    {% if can_cancel %}
+    <form method="post" action="{% url 'customer_portal:request-cancel' customer_request.pk %}" onsubmit="return confirm('Cancelar esta solicitação?');">{% csrf_token %}<button class="button danger-outline" type="submit">Cancelar solicitação</button></form>
+    {% endif %}
   </div>
-</section>
-
-<div class="form-actions">
-  {% if can_edit %}<a class="button" href="{% url 'customer_portal:request-update' customer_request.pk %}">Editar rascunho</a>{% endif %}
-  {% if can_edit %}
-  <form method="post" action="{% url 'customer_portal:request-submit' customer_request.pk %}">{% csrf_token %}<button class="button primary" type="submit">Enviar para conferência</button></form>
-  {% endif %}
-  {% if can_cancel %}
-  <form method="post" action="{% url 'customer_portal:request-cancel' customer_request.pk %}" onsubmit="return confirm('Cancelar esta solicitação?');">{% csrf_token %}<button class="button danger-outline" type="submit">Cancelar solicitação</button></form>
-  {% endif %}
 </div>
 {% endblock %}
