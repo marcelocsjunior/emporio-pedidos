@@ -45,6 +45,7 @@ def test_request_detail_mobile_contract():
     assert 'class="responsive-table portal-detail-items-table"' in template
     assert 'aria-label="Composição da solicitação"' in template
     assert "table-wrapper" not in template
+    assert "return confirm('Cancelar esta solicitação?');" in template
 
     for label in ("Produto", "Quantidade", "Unitário", "Total"):
         assert f'data-label="{label}"' in template
