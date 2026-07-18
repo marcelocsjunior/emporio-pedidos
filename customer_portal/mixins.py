@@ -10,6 +10,9 @@ class CustomerPortalAccessMixin(LoginRequiredMixin):
     portal_access: CustomerPortalAccess
 
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return super().dispatch(request, *args, **kwargs)
+
         try:
             access = CustomerPortalAccess.objects.select_related("company").get(
                 user=request.user,
