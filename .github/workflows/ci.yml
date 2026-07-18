@@ -33,7 +33,16 @@ jobs:
           path: portal-test-output.txt
           if-no-files-found: ignore
       - name: Test remaining suite
-        run: pytest -q --ignore=orders/tests/test_mvp03.py --ignore=orders/tests/test_domain.py --ignore=orders/tests/test_gui.py --ignore=customer_portal/tests --tb=line --disable-warnings
+        run: |
+          set -o pipefail
+          pytest -q --ignore=orders/tests/test_mvp03.py --ignore=orders/tests/test_domain.py --ignore=orders/tests/test_gui.py --ignore=customer_portal/tests --tb=line --disable-warnings 2>&1 | tee remaining-test-output.txt
+      - name: Preserve remaining test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remaining-test-output
+          path: remaining-test-output.txt
+          if-no-files-found: ignore
       - name: Ruff full gate
         run: |
           set -o pipefail
