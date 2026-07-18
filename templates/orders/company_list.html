@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Empresas — Empório Pedidos{% endblock %}
 {% block content %}
-<div class="page-heading"><div><div class="eyebrow">Cadastros</div><h1>Empresas</h1></div></div>
+<div class="page-heading">
+  <div><div class="eyebrow">Cadastros</div><h1>Empresas</h1><p>Clientes disponíveis para lançamento de pedidos.</p></div>
+  {% if perms.orders.add_company %}<a class="button primary" href="{% url 'company-create' %}">Nova empresa</a>{% endif %}
+</div>
 <form method="get" class="filter-bar"><input name="q" value="{{ request.GET.q }}" placeholder="Buscar empresa, responsável, cidade ou telefone"><button class="button" type="submit">Buscar</button></form>
 <section class="panel">
   <div class="table-wrap">
     <table class="responsive-table">
-      <thead><tr><th>Código</th><th>Empresa</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Tipo</th><th>Situação</th></tr></thead>
+      <thead><tr><th>Código</th><th>Empresa</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Tipo</th><th>Situação</th>{% if perms.orders.change_company %}<th>Ações</th>{% endif %}</tr></thead>
       <tbody>
       {% for company in companies %}
         <tr>
@@ -17,9 +20,17 @@
           <td data-label="Cidade">{{ company.city|default:"—" }}</td>
           <td data-label="Tipo">{{ company.get_customer_type_display }}</td>
           <td data-label="Situação">{% if company.active %}<span class="active-tag">Ativa</span>{% else %}<span class="inactive-tag">Inativa</span>{% endif %}</td>
+          {% if perms.orders.change_company %}
+          <td data-label="Ações">
+            <div class="row-actions">
+              <a class="button compact" href="{% url 'company-update' company.pk %}">Editar</a>
+              <form method="post" action="{% url 'company-toggle-active' company.pk %}">{% csrf_token %}<button class="button compact {% if company.active %}danger-outline{% endif %}" type="submit">{% if company.active %}Inativar{% else %}Ativar{% endif %}</button></form>
+            </div>
+          </td>
+          {% endif %}
         </tr>
       {% empty %}
-        <tr class="empty-row"><td colspan="7" class="empty">Nenhuma empresa encontrada.</td></tr>
+        <tr class="empty-row"><td colspan="8" class="empty">Nenhuma empresa encontrada.</td></tr>
       {% endfor %}
       </tbody>
     </table>
