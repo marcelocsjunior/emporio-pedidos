@@ -23,26 +23,11 @@ jobs:
         run: pytest -q orders/tests/test_domain.py orders/tests/test_gui.py --tb=line --disable-warnings
       - name: Test remaining suite
         run: pytest -q --ignore=orders/tests/test_mvp03.py --ignore=orders/tests/test_domain.py --ignore=orders/tests/test_gui.py --tb=line --disable-warnings
-      - name: Ruff forms
+      - name: Ruff application excluding migrations
         continue-on-error: true
-        run: ruff check orders/forms.py
-      - name: Ruff services
+        run: ruff check . --exclude '*/migrations/*'
+      - name: Ruff new migration explicitly
         continue-on-error: true
-        run: ruff check orders/services.py
-      - name: Ruff views
-        continue-on-error: true
-        run: ruff check orders/views.py
-      - name: Ruff tests
-        continue-on-error: true
-        run: ruff check orders/tests/test_domain.py orders/tests/test_gui.py orders/tests/test_mvp03.py
-      - name: Ruff models
-        continue-on-error: true
-        run: ruff check orders/models.py
-      - name: Ruff URLs
-        continue-on-error: true
-        run: ruff check orders/urls.py
-      - name: Ruff roles
-        continue-on-error: true
-        run: ruff check accounts/roles.py
+        run: ruff check orders/migrations/0002_order_creation_key.py --no-exclude
       - name: Ruff full gate
         run: ruff check .
