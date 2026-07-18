@@ -1,23 +1,56 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Fechamentos — Empório Pedidos{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/mvp04.css' %}">{% endblock %}
 {% block content %}
-<div class="page-heading"><div><div class="eyebrow">Financeiro</div><h1>Fechamentos mensais</h1></div></div>
+<div class="page-heading">
+  <div><div class="eyebrow">Financeiro</div><h1>Fechamentos mensais</h1><p>Somente pedidos entregues entram no cálculo.</p></div>
+</div>
+
+{% if perms.orders.add_monthlyclosing %}
+<section class="panel closing-generator">
+  <div class="panel-heading"><div><div class="eyebrow">Gerar ou recalcular</div><h2>Novo fechamento</h2></div></div>
+  <form method="post" action="{% url 'closing-generate' %}" class="closing-generate-form">
+    {% csrf_token %}
+    <div class="form-field"><label for="{{ generate_form.company.id_for_label }}">Empresa</label>{{ generate_form.company }}</div>
+    <div class="form-field"><label for="{{ generate_form.reference_month.id_for_label }}">Mês de referência</label>{{ generate_form.reference_month }}</div>
+    <button class="button primary" type="submit">Gerar fechamento</button>
+  </form>
+  <p class="form-help">Um fechamento validado ou faturado não pode ser recalculado.</p>
+</section>
+{% endif %}
+
+<form method="get" class="filter-bar filters-wide">
+  <select name="company">
+    <option value="">Todas as empresas</option>
+    {% for company in companies %}<option value="{{ company.pk }}" {% if request.GET.company == company.pk|stringformat:'s' %}selected{% endif %}>{{ company.name }}</option>{% endfor %}
+  </select>
+  <input type="month" name="reference_month" value="{{ request.GET.reference_month }}">
+  <select name="status">
+    <option value="">Todos os status</option>
+    {% for value,label in status_choices %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <button class="button" type="submit">Filtrar</button>
+  <a class="button ghost" href="{% url 'closing-list' %}">Limpar</a>
+</form>
+
 <section class="panel">
   <div class="table-wrap">
     <table class="responsive-table">
-      <thead><tr><th>Mês</th><th>Empresa</th><th class="numeric">Pedidos</th><th class="numeric">Itens</th><th class="numeric">Total</th><th>Status</th></tr></thead>
+      <thead><tr><th>Mês</th><th>Empresa</th><th class="numeric">Pedidos</th><th class="numeric">Itens</th><th class="numeric">Total</th><th>Status</th><th>Ação</th></tr></thead>
       <tbody>
       {% for closing in closings %}
         <tr>
           <td data-label="Mês">{{ closing.reference_month|date:"m/Y" }}</td>
-          <td data-label="Empresa">{{ closing.company.name }}</td>
+          <td data-label="Empresa"><strong>{{ closing.company.name }}</strong></td>
           <td data-label="Pedidos" class="numeric">{{ closing.order_count }}</td>
           <td data-label="Itens" class="numeric">{{ closing.item_count }}</td>
           <td data-label="Total" class="numeric">R$ {{ closing.total_amount|floatformat:2 }}</td>
-          <td data-label="Status"><span class="status-pill">{{ closing.get_status_display }}</span></td>
+          <td data-label="Status"><span class="status-pill closing-status-{{ closing.status }}">{{ closing.get_status_display }}</span></td>
+          <td data-label="Ação"><a class="button ghost compact" href="{% url 'closing-detail' closing.pk %}">Conferir</a></td>
         </tr>
       {% empty %}
-        <tr class="empty-row"><td colspan="6" class="empty">Nenhum fechamento registrado.</td></tr>
+        <tr class="empty-row"><td colspan="7" class="empty">Nenhum fechamento registrado.</td></tr>
       {% endfor %}
       </tbody>
     </table>

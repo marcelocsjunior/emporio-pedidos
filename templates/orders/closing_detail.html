@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Fechamento {{ closing.reference_month|date:"m/Y" }} — Empório Pedidos{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/mvp04.css' %}">{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Fechamento mensal</div>
+    <h1>{{ closing.company.name }}</h1>
+    <p>{{ closing.reference_month|date:"m/Y" }} · <span class="status-pill closing-status-{{ closing.status }}">{{ closing.get_status_display }}</span></p>
+  </div>
+  <div class="heading-actions">
+    <a class="button ghost" href="{% url 'closing-export-csv' closing.pk %}">Exportar CSV</a>
+    <a class="button ghost" href="{% url 'closing-list' %}">Voltar</a>
+  </div>
+</div>
+
+<section class="metric-grid closing-metrics">
+  <article class="metric-card"><span>Pedidos entregues</span><strong>{{ closing.order_count }}</strong></article>
+  <article class="metric-card"><span>Total de itens</span><strong>{{ closing.item_count }}</strong></article>
+  <article class="metric-card"><span>Valor total</span><strong>R$ {{ closing.total_amount|floatformat:2 }}</strong></article>
+  <article class="metric-card"><span>Status</span><strong>{{ closing.get_status_display }}</strong></article>
+</section>
+
+{% if perms.orders.change_monthlyclosing %}
+<section class="panel closing-actions-panel">
+  <div class="panel-heading"><div><div class="eyebrow">Controle financeiro</div><h2>Ações do fechamento</h2></div></div>
+  <div class="closing-actions">
+    {% if can_recalculate %}
+    <form method="post" action="{% url 'closing-recalculate' closing.pk %}" data-confirm="Recalcular com os pedidos entregues atualmente?">
+      {% csrf_token %}<button class="button ghost" type="submit">Recalcular</button>
+    </form>
+    {% endif %}
+    {% for value,label in allowed_statuses %}
+    <form method="post" action="{% url 'closing-status-update' closing.pk %}" class="status-action-form">
+      {% csrf_token %}
+      <input type="hidden" name="new_status" value="{{ value }}">
+      <input class="form-control" name="reason" maxlength="255" placeholder="Motivo opcional">
+      <button class="button {% if value == 'pending' %}ghost{% else %}primary{% endif %}" type="submit">Marcar como {{ label }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  {% if not can_recalculate and closing.status != 'invoiced' %}<p class="form-help">Fechamentos validados não podem ser recalculados.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="panel message-panel">
+  <div class="panel-heading"><div><div class="eyebrow">Comunicação manual</div><h2>Mensagem para WhatsApp</h2></div></div>
+  <textarea id="closing-message" class="message-text" readonly>{{ closing.message_snapshot }}</textarea>
+  <div class="message-actions">
+    <button class="button primary" type="button" data-copy-target="closing-message">Copiar mensagem</button>
+    {% if whatsapp_link %}<a class="button whatsapp-manual" href="{{ whatsapp_link }}" target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>{% else %}<span class="form-help">Cadastre um telefone válido na empresa para abrir o WhatsApp.</span>{% endif %}
+  </div>
+  <p id="copy-feedback" class="copy-feedback" aria-live="polite"></p>
+  <p class="form-help">A abertura e o envio dependem de confirmação humana. O sistema não dispara mensagens automaticamente.</p>
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><div class="eyebrow">Conferência</div><h2>Pedidos entregues do mês</h2></div></div>
+  <div class="table-wrap">
+    <table class="responsive-table">
+      <thead><tr><th>Pedido</th><th>Entrega</th><th>Horário</th><th class="numeric">Itens</th><th class="numeric">Total</th></tr></thead>
+      <tbody>
+      {% for order in orders %}
+        <tr>
+          <td data-label="Pedido"><a href="{% url 'order-detail' order.pk %}"><strong>{{ order.number }}</strong></a></td>
+          <td data-label="Entrega">{{ order.delivery_date|date:"d/m/Y" }}</td>
+          <td data-label="Horário">{{ order.delivery_time|time:"H:i"|default:"—" }}</td>
+          <td data-label="Itens" class="numeric">{% for item in order.items.all %}{{ item.quantity }}{% if not forloop.last %} + {% endif %}{% empty %}0{% endfor %}</td>
+          <td data-label="Total" class="numeric">R$ {{ order.total_amount|floatformat:2 }}</td>
+        </tr>
+      {% empty %}
+        <tr class="empty-row"><td colspan="5" class="empty">Nenhum pedido entregue compõe este fechamento.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="detail-grid">
+  <article class="panel">
+    <div class="panel-heading"><div><div class="eyebrow">Registro interno</div><h2>Observações</h2></div></div>
+    {% if perms.orders.change_monthlyclosing %}
+    <form method="post" action="{% url 'closing-notes-update' closing.pk %}" class="stacked-form">
+      {% csrf_token %}{{ notes_form.notes }}
+      <button class="button" type="submit">Salvar observações</button>
+    </form>
+    {% else %}<p>{{ closing.notes|default:"Nenhuma observação registrada." }}</p>{% endif %}
+  </article>
+
+  <article class="panel">
+    <div class="panel-heading"><div><div class="eyebrow">Rastreabilidade</div><h2>Histórico</h2></div></div>
+    <div class="timeline">
+      {% for row in audit_rows %}
+        <div class="timeline-item"><strong>{{ row.label }}</strong><span>{{ row.created_at|date:"d/m/Y H:i" }} por {{ row.actor|default:"Sistema" }}</span></div>
+      {% empty %}<div class="empty">Nenhum evento registrado.</div>{% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}
+{% block extra_scripts %}<script src="{% static 'js/closing.js' %}" defer></script>{% endblock %}
