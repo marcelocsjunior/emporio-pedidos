@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{% if creating %}Nova empresa{% else %}Editar empresa{% endif %} — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><div class="eyebrow">Cadastros</div><h1>{% if creating %}Nova empresa{% else %}Editar empresa{% endif %}</h1><p>Dados usados no lançamento e no fechamento dos pedidos.</p></div>
+  <a class="button ghost" href="{% url 'company-list' %}">Voltar</a>
+</div>
+<section class="panel form-panel">
+  <form method="post" class="operational-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-grid two-columns">
+      {% for field in form %}
+      <div class="field-group {% if field.name == 'notes' or field.name == 'address' %}full-width{% endif %}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>
+        {{ field }}
+        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+        {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="form-actions">
+      <a class="button ghost" href="{% url 'company-list' %}">Cancelar</a>
+      <button class="button primary" type="submit">{% if creating %}Cadastrar empresa{% else %}Salvar alterações{% endif %}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

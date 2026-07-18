@@ -101,6 +101,14 @@ class Order(TimeStampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     number = models.CharField(max_length=20, unique=True, default=order_number, editable=False)
+    creation_key = models.CharField(
+        "chave de criação",
+        max_length=64,
+        unique=True,
+        null=True,
+        blank=True,
+        editable=False,
+    )
     company = models.ForeignKey(
         Company,
         on_delete=models.PROTECT,

@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Produtos — Empório Pedidos{% endblock %}
 {% block content %}
-<div class="page-heading"><div><div class="eyebrow">Catálogo</div><h1>Produtos</h1></div></div>
+<div class="page-heading">
+  <div><div class="eyebrow">Catálogo</div><h1>Produtos</h1><p>Preços atuais usados em novos pedidos.</p></div>
+  {% if perms.orders.add_product %}<a class="button primary" href="{% url 'product-create' %}">Novo produto</a>{% endif %}
+</div>
 <form method="get" class="filter-bar"><input name="q" value="{{ request.GET.q }}" placeholder="Buscar código, produto ou categoria"><button class="button" type="submit">Buscar</button></form>
 <section class="panel">
   <div class="table-wrap">
     <table class="responsive-table">
-      <thead><tr><th>Código</th><th>Produto</th><th>Categoria</th><th class="numeric">Valor unitário</th><th>Situação</th></tr></thead>
+      <thead><tr><th>Código</th><th>Produto</th><th>Categoria</th><th class="numeric">Valor unitário</th><th>Situação</th>{% if perms.orders.change_product %}<th>Ações</th>{% endif %}</tr></thead>
       <tbody>
       {% for product in products %}
         <tr>
@@ -15,9 +18,17 @@
           <td data-label="Categoria">{{ product.category|default:"—" }}</td>
           <td data-label="Valor unitário" class="numeric">R$ {{ product.unit_price|floatformat:2 }}</td>
           <td data-label="Situação">{% if product.active %}<span class="active-tag">Ativo</span>{% else %}<span class="inactive-tag">Inativo</span>{% endif %}</td>
+          {% if perms.orders.change_product %}
+          <td data-label="Ações">
+            <div class="row-actions">
+              <a class="button compact" href="{% url 'product-update' product.pk %}">Editar</a>
+              <form method="post" action="{% url 'product-toggle-active' product.pk %}">{% csrf_token %}<button class="button compact {% if product.active %}danger-outline{% endif %}" type="submit">{% if product.active %}Inativar{% else %}Ativar{% endif %}</button></form>
+            </div>
+          </td>
+          {% endif %}
         </tr>
       {% empty %}
-        <tr class="empty-row"><td colspan="5" class="empty">Nenhum produto encontrado.</td></tr>
+        <tr class="empty-row"><td colspan="6" class="empty">Nenhum produto encontrado.</td></tr>
       {% endfor %}
       </tbody>
     </table>

@@ -5,7 +5,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Sum
 from django.utils import timezone
 
@@ -20,6 +20,8 @@ ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     Order.Status.CANCELLED: set(),
 }
 
+ORDER_EDITABLE_STATUSES = {Order.Status.PENDING, Order.Status.RECEIVED}
+
 
 def record_audit(*, actor, action: str, entity, payload: dict | None = None) -> AuditEvent:
     return AuditEvent.objects.create(
@@ -29,6 +31,116 @@ def record_audit(*, actor, action: str, entity, payload: dict | None = None) -> 
         entity_id=str(entity.pk),
         payload=payload or {},
     )
+
+
+def _order_snapshot(order: Order) -> dict[str, str]:
+    return {
+        "company_id": str(order.company_id),
+        "order_date": order.order_date.isoformat(),
+        "delivery_date": order.delivery_date.isoformat(),
+        "delivery_time": order.delivery_time.isoformat() if order.delivery_time else "",
+        "delivery_location": order.delivery_location,
+        "status": order.status,
+        "total_amount": str(order.total_amount),
+    }
+
+
+def _save_order_items(*, formset, order: Order) -> tuple[list[str], list[str]]:
+    formset.instance = order
+    items = formset.save(commit=False)
+    deleted_ids = [str(item.pk) for item in getattr(formset, "deleted_objects", ())]
+    for item in getattr(formset, "deleted_objects", ()):
+        item.delete()
+
+    saved_ids: list[str] = []
+    for item in items:
+        item.order = order
+        item.full_clean()
+        item.save()
+        saved_ids.append(str(item.pk))
+    formset.save_m2m()
+    order.recalculate_total()
+    return saved_ids, deleted_ids
+
+
+def create_order_from_forms(
+    *, order_form, item_formset, actor, creation_key: str
+) -> tuple[Order, bool]:
+    existing = Order.objects.filter(creation_key=creation_key).first()
+    if existing:
+        return existing, False
+
+    try:
+        with transaction.atomic():
+            order = order_form.save(commit=False)
+            order.creation_key = creation_key
+            order.status = Order.Status.PENDING
+            order.created_by = actor
+            order.updated_by = actor
+            order.full_clean()
+            order.save()
+            saved_ids, _ = _save_order_items(formset=item_formset, order=order)
+            order.refresh_from_db()
+            record_audit(
+                actor=actor,
+                action="order.created",
+                entity=order,
+                payload={
+                    **_order_snapshot(order),
+                    "item_ids": saved_ids,
+                    "item_count": order.items.count(),
+                },
+            )
+            return order, True
+    except IntegrityError:
+        existing = Order.objects.filter(creation_key=creation_key).first()
+        if existing:
+            return existing, False
+        raise
+
+
+@transaction.atomic
+def update_order_from_forms(*, order: Order, order_form, item_formset, actor) -> Order:
+    locked = Order.objects.select_for_update().get(pk=order.pk)
+    if locked.status not in ORDER_EDITABLE_STATUSES:
+        raise ValidationError("O pedido não pode mais ser editado neste status.")
+
+    before = _order_snapshot(locked)
+    for field in (
+        "company",
+        "order_date",
+        "delivery_date",
+        "delivery_time",
+        "delivery_location",
+        "notes",
+    ):
+        setattr(locked, field, order_form.cleaned_data[field])
+    locked.updated_by = actor
+    locked.full_clean()
+    locked.save()
+
+    saved_ids: list[str] = []
+    deleted_ids: list[str] = []
+    if item_formset is not None:
+        if locked.status != Order.Status.PENDING:
+            raise ValidationError(
+                "Os itens só podem ser alterados enquanto o pedido está pendente."
+            )
+        saved_ids, deleted_ids = _save_order_items(formset=item_formset, order=locked)
+
+    locked.refresh_from_db()
+    record_audit(
+        actor=actor,
+        action="order.updated",
+        entity=locked,
+        payload={
+            "before": before,
+            "after": _order_snapshot(locked),
+            "saved_item_ids": saved_ids,
+            "deleted_item_ids": deleted_ids,
+        },
+    )
+    return locked
 
 
 @transaction.atomic
@@ -56,6 +168,11 @@ def change_order_status(
         raise ValidationError(
             {"status": f"Transição não permitida: {current_status} → {new_status}."}
         )
+    if new_status != Order.Status.CANCELLED:
+        if not order.items.exists():
+            raise ValidationError("Adicione ao menos um item antes de avançar o pedido.")
+        if order.total_amount <= 0:
+            raise ValidationError("O pedido precisa ter valor total maior que zero.")
 
     now = timezone.now()
     order.status = new_status

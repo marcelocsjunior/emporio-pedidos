@@ -41,11 +41,17 @@ def test_order_item_uses_product_price_and_recalculates_order(company, product):
     assert order.total_amount == Decimal("110.00")
 
 
-def test_status_flow_is_controlled_and_audited(company):
+def test_status_flow_is_controlled_and_audited(company, product):
     order = Order.objects.create(
         company=company,
         order_date=date(2026, 7, 18),
         delivery_date=date(2026, 7, 18),
+    )
+    OrderItem.objects.create(
+        order=order,
+        product=product,
+        quantity=1,
+        unit_price=product.unit_price,
     )
 
     change_order_status(
@@ -70,6 +76,17 @@ def test_status_flow_is_controlled_and_audited(company):
 
     with pytest.raises(ValidationError):
         change_order_status(order_id=order.id, new_status=Order.Status.DELIVERED)
+
+
+def test_order_without_items_cannot_advance(company):
+    order = Order.objects.create(
+        company=company,
+        order_date=date(2026, 7, 18),
+        delivery_date=date(2026, 7, 18),
+    )
+
+    with pytest.raises(ValidationError, match="ao menos um item"):
+        change_order_status(order_id=order.id, new_status=Order.Status.RECEIVED)
 
 
 def test_monthly_closing_only_counts_delivered_orders(company, product):

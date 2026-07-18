@@ -1,21 +1,30 @@
 from __future__ import annotations
 
+import uuid
 from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 
 from .access import allowed_statuses_for_user
+from .forms import CompanyForm, OrderCreateForm, OrderForm, OrderItemFormSet, ProductForm
 from .models import AuditEvent, Company, MonthlyClosing, Order, Product
-from .services import change_order_status
+from .services import (
+    ORDER_EDITABLE_STATUSES,
+    change_order_status,
+    create_order_from_forms,
+    record_audit,
+    update_order_from_forms,
+)
 
 
 class SecurePermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
@@ -89,6 +98,92 @@ class CompanyListView(SecurePermissionMixin, SearchableListMixin, ListView):
     search_fields = ("code", "name", "responsible_name", "city", "phone")
 
 
+class CompanyCreateView(SecurePermissionMixin, View):
+    permission_required = "orders.add_company"
+    template_name = "orders/company_form.html"
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        return render(request, self.template_name, {"form": CompanyForm(), "creating": True})
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        form = CompanyForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form, "creating": True})
+        with transaction.atomic():
+            company = form.save()
+            record_audit(
+                actor=request.user,
+                action="company.created",
+                entity=company,
+                payload={"code": company.code, "name": company.name, "active": company.active},
+            )
+        messages.success(request, "Empresa cadastrada com sucesso.")
+        return redirect("company-list")
+
+
+class CompanyUpdateView(SecurePermissionMixin, View):
+    permission_required = "orders.change_company"
+    template_name = "orders/company_form.html"
+
+    def get_object(self, pk) -> Company:
+        return get_object_or_404(Company, pk=pk)
+
+    def get(self, request: HttpRequest, pk) -> HttpResponse:
+        company = self.get_object(pk)
+        return render(
+            request,
+            self.template_name,
+            {"form": CompanyForm(instance=company), "company": company, "creating": False},
+        )
+
+    def post(self, request: HttpRequest, pk) -> HttpResponse:
+        company = self.get_object(pk)
+        before = {"name": company.name, "active": company.active}
+        form = CompanyForm(request.POST, instance=company)
+        if not form.is_valid():
+            return render(
+                request,
+                self.template_name,
+                {"form": form, "company": company, "creating": False},
+            )
+        with transaction.atomic():
+            company = form.save()
+            record_audit(
+                actor=request.user,
+                action="company.updated",
+                entity=company,
+                payload={
+                    "before": before,
+                    "after": {"name": company.name, "active": company.active},
+                },
+            )
+        messages.success(request, "Empresa atualizada com sucesso.")
+        return redirect("company-list")
+
+
+class CompanyToggleActiveView(SecurePermissionMixin, View):
+    permission_required = "orders.change_company"
+    http_method_names = ("post",)
+
+    @transaction.atomic
+    def post(self, request: HttpRequest, pk) -> HttpResponse:
+        company = get_object_or_404(Company.objects.select_for_update(), pk=pk)
+        previous = company.active
+        company.active = not company.active
+        company.save(update_fields=("active", "updated_at"))
+        record_audit(
+            actor=request.user,
+            action="company.activated" if company.active else "company.deactivated",
+            entity=company,
+            payload={"from": previous, "to": company.active},
+        )
+        messages.success(
+            request,
+            "Empresa ativada." if company.active else "Empresa inativada para novos pedidos.",
+        )
+        return redirect("company-list")
+
+
 class ProductListView(SecurePermissionMixin, SearchableListMixin, ListView):
     permission_required = "orders.view_product"
     model = Product
@@ -96,6 +191,108 @@ class ProductListView(SecurePermissionMixin, SearchableListMixin, ListView):
     context_object_name = "products"
     paginate_by = 30
     search_fields = ("code", "name", "category")
+
+
+class ProductCreateView(SecurePermissionMixin, View):
+    permission_required = "orders.add_product"
+    template_name = "orders/product_form.html"
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        return render(request, self.template_name, {"form": ProductForm(), "creating": True})
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        form = ProductForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form, "creating": True})
+        with transaction.atomic():
+            product = form.save()
+            record_audit(
+                actor=request.user,
+                action="product.created",
+                entity=product,
+                payload={
+                    "code": product.code,
+                    "name": product.name,
+                    "unit_price": str(product.unit_price),
+                    "active": product.active,
+                },
+            )
+        messages.success(request, "Produto cadastrado com sucesso.")
+        return redirect("product-list")
+
+
+class ProductUpdateView(SecurePermissionMixin, View):
+    permission_required = "orders.change_product"
+    template_name = "orders/product_form.html"
+
+    def get_object(self, pk) -> Product:
+        return get_object_or_404(Product, pk=pk)
+
+    def get(self, request: HttpRequest, pk) -> HttpResponse:
+        product = self.get_object(pk)
+        return render(
+            request,
+            self.template_name,
+            {"form": ProductForm(instance=product), "product": product, "creating": False},
+        )
+
+    def post(self, request: HttpRequest, pk) -> HttpResponse:
+        product = self.get_object(pk)
+        before = {
+            "name": product.name,
+            "unit_price": str(product.unit_price),
+            "active": product.active,
+        }
+        form = ProductForm(request.POST, instance=product)
+        if not form.is_valid():
+            return render(
+                request,
+                self.template_name,
+                {"form": form, "product": product, "creating": False},
+            )
+        with transaction.atomic():
+            product = form.save()
+            record_audit(
+                actor=request.user,
+                action="product.updated",
+                entity=product,
+                payload={
+                    "before": before,
+                    "after": {
+                        "name": product.name,
+                        "unit_price": str(product.unit_price),
+                        "active": product.active,
+                    },
+                },
+            )
+        messages.success(
+            request,
+            "Produto atualizado. Pedidos anteriores mantêm o preço congelado.",
+        )
+        return redirect("product-list")
+
+
+class ProductToggleActiveView(SecurePermissionMixin, View):
+    permission_required = "orders.change_product"
+    http_method_names = ("post",)
+
+    @transaction.atomic
+    def post(self, request: HttpRequest, pk) -> HttpResponse:
+        product = get_object_or_404(Product.objects.select_for_update(), pk=pk)
+        previous = product.active
+        product.active = not product.active
+        product.save(update_fields=("active", "updated_at"))
+        record_audit(
+            actor=request.user,
+            action="product.activated" if product.active else "product.deactivated",
+            entity=product,
+            payload={"from": previous, "to": product.active},
+        )
+        messages.success(
+            request,
+            "Produto ativado." if product.active else "Produto inativado para novos pedidos.",
+        )
+        return redirect("product-list")
 
 
 class OrderListView(SecurePermissionMixin, SearchableListMixin, ListView):
@@ -125,6 +322,136 @@ class OrderListView(SecurePermissionMixin, SearchableListMixin, ListView):
         return context
 
 
+class OrderCreateView(SecurePermissionMixin, View):
+    permission_required = ("orders.add_order", "orders.add_orderitem")
+    template_name = "orders/order_form.html"
+    session_key = "emporio_order_creation_key"
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        creation_key = uuid.uuid4().hex
+        request.session[self.session_key] = creation_key
+        draft = Order()
+        form = OrderCreateForm(
+            instance=draft,
+            initial={
+                "creation_key": creation_key,
+                "order_date": timezone.localdate(),
+                "delivery_date": timezone.localdate(),
+            },
+        )
+        formset = OrderItemFormSet(instance=draft, prefix="items")
+        return render(
+            request,
+            self.template_name,
+            {"form": form, "formset": formset, "creating": True, "can_edit_items": True},
+        )
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        creation_key = request.POST.get("creation_key", "").strip()
+        existing = Order.objects.filter(creation_key=creation_key).first() if creation_key else None
+        if existing:
+            messages.info(
+                request,
+                "Este pedido já havia sido salvo; nenhuma duplicidade foi criada.",
+            )
+            return redirect("order-detail", pk=existing.pk)
+
+        draft = Order()
+        form = OrderCreateForm(request.POST, instance=draft)
+        formset = OrderItemFormSet(request.POST, instance=draft, prefix="items")
+        forms_valid = form.is_valid() and formset.is_valid()
+        expected_key = request.session.get(self.session_key)
+        if forms_valid and creation_key != expected_key:
+            form.add_error("creation_key", "A sessão do formulário expirou. Reabra o novo pedido.")
+            forms_valid = False
+
+        if forms_valid:
+            order, created = create_order_from_forms(
+                order_form=form,
+                item_formset=formset,
+                actor=request.user,
+                creation_key=creation_key,
+            )
+            request.session.pop(self.session_key, None)
+            if created:
+                messages.success(request, f"Pedido {order.number} criado com sucesso.")
+            else:
+                messages.info(request, "Pedido já existente; repetição ignorada com segurança.")
+            return redirect("order-detail", pk=order.pk)
+
+        return render(
+            request,
+            self.template_name,
+            {"form": form, "formset": formset, "creating": True, "can_edit_items": True},
+        )
+
+
+class OrderUpdateView(SecurePermissionMixin, View):
+    permission_required = "orders.change_order"
+    template_name = "orders/order_form.html"
+
+    def get_object(self, pk) -> Order:
+        return get_object_or_404(Order.objects.select_related("company"), pk=pk)
+
+    def _guard(self, order: Order) -> None:
+        if order.status not in ORDER_EDITABLE_STATUSES:
+            raise PermissionDenied("O pedido não pode mais ser editado neste status.")
+
+    def get(self, request: HttpRequest, pk) -> HttpResponse:
+        order = self.get_object(pk)
+        self._guard(order)
+        can_edit_items = order.status == Order.Status.PENDING
+        formset = OrderItemFormSet(instance=order, prefix="items") if can_edit_items else None
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": OrderForm(instance=order),
+                "formset": formset,
+                "order": order,
+                "creating": False,
+                "can_edit_items": can_edit_items,
+            },
+        )
+
+    def post(self, request: HttpRequest, pk) -> HttpResponse:
+        order = self.get_object(pk)
+        self._guard(order)
+        can_edit_items = order.status == Order.Status.PENDING
+        form = OrderForm(request.POST, instance=order)
+        formset = (
+            OrderItemFormSet(request.POST, instance=order, prefix="items")
+            if can_edit_items
+            else None
+        )
+        valid = form.is_valid() and (formset is None or formset.is_valid())
+        if valid:
+            try:
+                updated = update_order_from_forms(
+                    order=order,
+                    order_form=form,
+                    item_formset=formset,
+                    actor=request.user,
+                )
+            except ValidationError as exc:
+                form.add_error(None, "; ".join(exc.messages))
+            else:
+                messages.success(request, f"Pedido {updated.number} atualizado com sucesso.")
+                return redirect("order-detail", pk=updated.pk)
+
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "formset": formset,
+                "order": order,
+                "creating": False,
+                "can_edit_items": can_edit_items,
+            },
+        )
+
+
 class OrderDetailView(SecurePermissionMixin, DetailView):
     permission_required = "orders.view_order"
     model = Order
@@ -145,6 +472,9 @@ class OrderDetailView(SecurePermissionMixin, DetailView):
         context["allowed_statuses"] = [
             (value, label) for value, label in Order.Status.choices if value in allowed
         ]
+        context["can_edit"] = self.request.user.has_perm(
+            "orders.change_order"
+        ) and self.object.status in ORDER_EDITABLE_STATUSES
         return context
 
 

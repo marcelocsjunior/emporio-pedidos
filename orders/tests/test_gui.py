@@ -13,7 +13,7 @@ from accounts.roles import (
     ROLE_PRODUCTION,
     ensure_roles,
 )
-from orders.models import AuditEvent, Company, Order, OrderStatusHistory, Product
+from orders.models import AuditEvent, Company, Order, OrderItem, OrderStatusHistory, Product
 
 
 class OperationalGuiTests(TestCase):
@@ -32,6 +32,12 @@ class OperationalGuiTests(TestCase):
             delivery_date=timezone.localdate() + timedelta(days=1),
             status=Order.Status.PENDING,
             delivery_location="Portaria",
+        )
+        OrderItem.objects.create(
+            order=cls.order,
+            product=cls.product,
+            quantity=2,
+            unit_price=cls.product.unit_price,
         )
 
         cls.attendance = User.objects.create_user("atendimento", password="Senha!123456")
