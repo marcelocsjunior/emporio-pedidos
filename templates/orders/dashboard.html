@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Painel — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><div class="eyebrow">Operação de {{ today|date:"d/m/Y" }}</div><h1>Painel operacional</h1><p>Leitura rápida dos pedidos, produção e fechamentos.</p></div>
+</div>
+
+<section class="metric-grid">
+  <article class="metric"><span>Pedidos de hoje</span><strong>{{ today_order_count }}</strong></article>
+  <article class="metric"><span>Valor previsto</span><strong>R$ {{ today_total|floatformat:2 }}</strong></article>
+  <article class="metric"><span>Empresas ativas</span><strong>{{ active_companies }}</strong></article>
+  <article class="metric"><span>Produtos ativos</span><strong>{{ active_products }}</strong></article>
+  <article class="metric"><span>Fechamentos pendentes</span><strong>{{ pending_closings }}</strong></article>
+</section>
+
+<section class="panel">
+  <div class="panel-heading"><div><div class="eyebrow">Hoje</div><h2>Pedidos por status</h2></div>{% if perms.orders.view_order %}<a class="button" href="{% url 'order-list' %}?delivery_date={{ today|date:'Y-m-d' }}">Ver pedidos</a>{% endif %}</div>
+  <div class="status-grid">
+    {% for card in status_cards %}<div class="status-card status-{{ card.value }}"><span>{{ card.label }}</span><strong>{{ card.count }}</strong><small>R$ {{ card.amount|floatformat:2 }}</small></div>{% endfor %}
+  </div>
+</section>
+
+{% if perms.orders.view_order %}
+<section class="panel">
+  <div class="panel-heading"><div><div class="eyebrow">Últimos registros</div><h2>Pedidos recentes</h2></div></div>
+  <div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Empresa</th><th>Entrega</th><th>Status</th><th class="numeric">Total</th></tr></thead><tbody>
+    {% for order in recent_orders %}<tr><td><a href="{% url 'order-detail' order.pk %}">{{ order.number }}</a></td><td>{{ order.company.name }}</td><td>{{ order.delivery_date|date:"d/m/Y" }} {{ order.delivery_time|time:"H:i" }}</td><td><span class="status-pill status-{{ order.status }}">{{ order.get_status_display }}</span></td><td class="numeric">R$ {{ order.total_amount|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="5" class="empty">Nenhum pedido registrado.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endif %}
+{% endblock %}
