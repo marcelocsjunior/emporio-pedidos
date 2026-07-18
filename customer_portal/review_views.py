@@ -12,6 +12,7 @@ from django.views.generic import DetailView, ListView
 from .forms import ReviewReasonForm
 from .mixins import ReviewPermissionMixin
 from .models import CustomerOrderRequest
+from .review_state import start_review
 from .services import (
     REVIEWABLE_STATUSES,
     approve_and_convert_request,
@@ -84,9 +85,25 @@ class RequestReviewView(ReviewPermissionMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["reviewable"] = self.object.status in REVIEWABLE_STATUSES
+        context["can_start_review"] = (
+            self.object.status == CustomerOrderRequest.Status.SUBMITTED
+        )
         context["reason_form"] = ReviewReasonForm()
         context["duplicates"] = find_possible_duplicates(self.object)
         return context
+
+
+class RequestStartReviewView(ReviewPermissionMixin, View):
+    http_method_names = ("post",)
+
+    def post(self, request, pk):
+        try:
+            start_review(request_id=pk, actor=request.user)
+        except ValidationError as exc:
+            messages.error(request, "; ".join(exc.messages))
+        else:
+            messages.success(request, "Análise iniciada e registrada na auditoria.")
+        return redirect("customer_portal:request-review", pk=pk)
 
 
 class RequestCorrectionView(ReviewPermissionMixin, View):
