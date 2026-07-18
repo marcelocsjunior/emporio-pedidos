@@ -62,6 +62,7 @@ def _enqueue_candidate(
     prompt = _prompt_version()
     key_material = {
         "event_type": event_type,
+        "data_context": data_context,
         "source_type": source_type,
         "source_id": source_id,
         "source_version": source_version,
