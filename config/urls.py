@@ -16,6 +16,7 @@ admin.site.index_title = "Administração técnica"
 urlpatterns = [
     path("health/", healthcheck, name="healthcheck"),
     path("conta/", include("accounts.urls")),
+    path("inteligencia/", include("intelligence.urls")),
     path("", include("orders.urls")),
     path("admin/", admin.site.urls),
 ]

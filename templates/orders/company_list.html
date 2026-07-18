@@ -9,12 +9,13 @@
 <section class="panel">
   <div class="table-wrap">
     <table class="responsive-table">
-      <thead><tr><th>Código</th><th>Empresa</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Tipo</th><th>Situação</th>{% if perms.orders.change_company %}<th>Ações</th>{% endif %}</tr></thead>
+      <thead><tr><th>Código</th><th>Empresa</th><th>Ambiente</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Tipo</th><th>Situação</th>{% if perms.orders.change_company %}<th>Ações</th>{% endif %}</tr></thead>
       <tbody>
       {% for company in companies %}
         <tr>
           <td data-label="Código">{{ company.code }}</td>
           <td data-label="Empresa"><strong>{{ company.name }}</strong></td>
+          <td data-label="Ambiente">{% if company.is_demo %}<span class="inactive-tag">Demonstração</span>{% else %}<span class="active-tag">Real</span>{% endif %}</td>
           <td data-label="Responsável">{{ company.responsible_name|default:"—" }}</td>
           <td data-label="Telefone">{{ company.phone|default:"—" }}</td>
           <td data-label="Cidade">{{ company.city|default:"—" }}</td>
@@ -30,7 +31,7 @@
           {% endif %}
         </tr>
       {% empty %}
-        <tr class="empty-row"><td colspan="8" class="empty">Nenhuma empresa encontrada.</td></tr>
+        <tr class="empty-row"><td colspan="9" class="empty">Nenhuma empresa encontrada.</td></tr>
       {% endfor %}
       </tbody>
     </table>

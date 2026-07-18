@@ -1,0 +1,146 @@
+.intelligence-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.metric-card,
+.recommendation-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #d7ddd9);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgb(14 56 41 / 7%);
+}
+
+.metric-card {
+  padding: 1rem;
+}
+
+.metric-card span {
+  display: block;
+  color: #5d6d65;
+  font-size: 0.85rem;
+}
+
+.metric-card strong {
+  display: block;
+  font-size: 1.6rem;
+  margin-top: 0.2rem;
+}
+
+.intelligence-filters select,
+.feedback-form input {
+  min-height: 42px;
+  border: 1px solid #c7d0cb;
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  background: #fff;
+}
+
+.recommendation-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.recommendation-card {
+  padding: 1rem;
+  border-left-width: 6px;
+}
+
+.recommendation-card.severity-info {
+  border-left-color: #547f72;
+}
+
+.recommendation-card.severity-attention {
+  border-left-color: #b78216;
+}
+
+.recommendation-card.severity-critical {
+  border-left-color: #a6382f;
+}
+
+.recommendation-card header,
+.recommendation-card footer,
+.feedback-actions,
+.recommendation-tags {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.recommendation-card h2 {
+  margin: 0.45rem 0;
+  font-size: 1.15rem;
+}
+
+.recommendation-card time,
+.recommendation-card footer {
+  color: #66736d;
+  font-size: 0.82rem;
+}
+
+.status-tag,
+.context-tag,
+.severity-tag {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  background: #edf2ef;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.context-demo {
+  background: #fff1c7;
+}
+
+.context-real {
+  background: #dff2e8;
+}
+
+.suggested-action {
+  margin: 0.8rem 0;
+  padding: 0.75rem;
+  background: #f4f7f5;
+  border-radius: 8px;
+}
+
+.recommendation-card details pre {
+  overflow: auto;
+  max-height: 260px;
+  white-space: pre-wrap;
+  background: #f7f8f7;
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+
+.feedback-form {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e1e6e3;
+}
+
+.feedback-actions {
+  justify-content: flex-start;
+}
+
+@media (max-width: 720px) {
+  .intelligence-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .recommendation-card header {
+    align-items: flex-start;
+  }
+
+  .intelligence-filters select,
+  .intelligence-filters button,
+  .feedback-form input {
+    width: 100%;
+  }
+}

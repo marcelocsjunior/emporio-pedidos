@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "accounts.apps.AccountsConfig",
     "orders",
+    "intelligence.apps.IntelligenceConfig",
 ]
 
 MIDDLEWARE = [
@@ -122,6 +123,23 @@ CSRF_COOKIE_SECURE = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
+AI_ENABLED = os.getenv("AI_ENABLED", "0") == "1"
+AI_MODE = os.getenv("AI_MODE", "shadow").strip().lower()
+if AI_MODE not in {"shadow", "pilot"}:
+    AI_MODE = "shadow"
+AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini").strip().lower()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+GEMINI_API_URL = os.getenv(
+    "GEMINI_API_URL",
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+)
+AI_PROMPT_VERSION = os.getenv("AI_PROMPT_VERSION", "mvp-ia-01-v1")
+AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "60"))
+AI_POLL_SECONDS = int(os.getenv("AI_POLL_SECONDS", "900"))
+AI_MAX_ATTEMPTS = int(os.getenv("AI_MAX_ATTEMPTS", "5"))
+AI_RETENTION_DAYS = int(os.getenv("AI_RETENTION_DAYS", "365"))
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -142,6 +160,11 @@ LOGGING = {
             "handlers": ["console"],
             "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
             "propagate": False,
-        }
+        },
+        "emporio.ai": {
+            "handlers": ["console"],
+            "level": os.getenv("AI_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
     },
 }

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Central Inteligente — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Supervisão operacional</div>
+    <h1>Central Inteligente</h1>
+    <p>Alertas e recomendações rastreáveis. Nenhuma ação sensível é executada automaticamente.</p>
+  </div>
+  {% if can_process %}
+  <form method="post" action="{% url 'intelligence:enqueue' %}">
+    {% csrf_token %}
+    <button class="button primary" type="submit">Executar varredura</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if ai_mode == "shadow" %}
+<div class="message warning">
+  Modo sombra ativo: somente Administradores visualizam os resultados durante a calibração.
+</div>
+{% endif %}
+{% if not ai_enabled %}
+<div class="message warning">
+  Gemini desativado. As regras determinísticas continuam operando sem chamadas externas.
+</div>
+{% elif not provider_configured %}
+<div class="message error">
+  Gemini habilitado, mas a credencial não está configurada na VPS.
+</div>
+{% endif %}
+
+<section class="intelligence-metrics" aria-label="Resumo da Central Inteligente">
+  <article class="metric-card"><span>Novas</span><strong>{{ new_count }}</strong></article>
+  <article class="metric-card"><span>Críticas abertas</span><strong>{{ critical_count }}</strong></article>
+  <article class="metric-card"><span>Modo</span><strong>{{ ai_mode|upper }}</strong></article>
+</section>
+
+<form method="get" class="filter-bar intelligence-filters">
+  <select name="category" aria-label="Categoria">
+    <option value="">Todas as categorias</option>
+    {% for value, label in category_choices %}
+    <option value="{{ value }}" {% if request.GET.category == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="context" aria-label="Contexto dos dados">
+    <option value="">Dados reais e demonstração</option>
+    {% for value, label in context_choices %}
+    <option value="{{ value }}" {% if request.GET.context == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="status" aria-label="Status">
+    <option value="">Todos os status</option>
+    {% for value, label in status_choices %}
+    <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button class="button" type="submit">Filtrar</button>
+</form>
+
+<section class="recommendation-list">
+  {% for recommendation in recommendations %}
+  <article class="recommendation-card severity-{{ recommendation.severity }}">
+    <header>
+      <div>
+        <div class="recommendation-tags">
+          <span class="status-tag">{{ recommendation.get_category_display }}</span>
+          <span class="context-tag context-{{ recommendation.data_context }}">{{ recommendation.get_data_context_display }}</span>
+          <span class="severity-tag">{{ recommendation.get_severity_display }}</span>
+        </div>
+        <h2>{{ recommendation.title }}</h2>
+      </div>
+      <time datetime="{{ recommendation.created_at|date:'c' }}">{{ recommendation.created_at|date:"d/m/Y H:i" }}</time>
+    </header>
+    <p>{{ recommendation.summary }}</p>
+    {% if recommendation.action_suggested %}
+    <div class="suggested-action"><strong>Ação sugerida:</strong> {{ recommendation.action_suggested }}</div>
+    {% endif %}
+    <details>
+      <summary>Ver evidências</summary>
+      <pre>{{ recommendation.evidence|pprint }}</pre>
+    </details>
+    <footer>
+      <span>Status: <strong>{{ recommendation.get_status_display }}</strong></span>
+      <span>Confiança: <strong>{{ recommendation.confidence|floatformat:1 }}</strong></span>
+    </footer>
+    {% if can_process and recommendation.category == "system" and recommendation.status != "expired" %}
+    <form method="post" action="{% url 'intelligence:retry' recommendation.pk %}" class="feedback-form">
+      {% csrf_token %}
+      <button class="button compact" type="submit">Reprocessar evento</button>
+    </form>
+    {% endif %}
+    {% if perms.intelligence.add_aifeedback and recommendation.status != "expired" %}
+    <form method="post" action="{% url 'intelligence:feedback' recommendation.pk %}" class="feedback-form">
+      {% csrf_token %}
+      <input name="notes" maxlength="255" placeholder="Observação opcional">
+      <div class="feedback-actions">
+        <button class="button compact" name="rating" value="useful" type="submit">Útil</button>
+        <button class="button compact" name="rating" value="incorrect" type="submit">Incorreta</button>
+        <button class="button compact" name="rating" value="not_applicable" type="submit">Não aplicável</button>
+      </div>
+    </form>
+    {% endif %}
+  </article>
+  {% empty %}
+  <div class="panel empty">Nenhuma recomendação disponível para os filtros e permissões atuais.</div>
+  {% endfor %}
+</section>
+{% include "orders/pagination.html" %}
+{% endblock %}

@@ -55,6 +55,11 @@ class Company(TimeStampedModel):
     payment_terms = models.CharField("forma/condição de pagamento", max_length=180, blank=True)
     notes = models.TextField("observações", blank=True)
     active = models.BooleanField("ativo", default=True)
+    is_demo = models.BooleanField(
+        "dados de demonstração",
+        default=False,
+        help_text="Separa dados de apresentação dos dados reais nas análises.",
+    )
 
     class Meta:
         ordering = ("name",)

@@ -8,6 +8,7 @@
   <title>{% block title %}Empório Pedidos{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <link rel="stylesheet" href="{% static 'css/mvp03.css' %}">
+  <link rel="stylesheet" href="{% static 'css/intelligence.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -25,6 +26,7 @@
           {% if perms.orders.view_company %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
           {% if perms.orders.view_product %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
           {% if perms.orders.view_monthlyclosing %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
+          {% if perms.intelligence.view_airecommendation %}<a href="{% url 'intelligence:central' %}">Central Inteligente</a>{% endif %}
           {% if perms.orders.view_auditevent %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
         </nav>
 
@@ -48,6 +50,7 @@
               {% if perms.orders.view_company %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
               {% if perms.orders.view_product %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
               {% if perms.orders.view_monthlyclosing %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
+              {% if perms.intelligence.view_airecommendation %}<a href="{% url 'intelligence:central' %}">Central Inteligente</a>{% endif %}
               {% if perms.orders.view_auditevent %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
               <a href="{% url 'password_change' %}">Alterar senha</a>
               <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="mobile-logout">Sair</button></form>
