@@ -35,5 +35,14 @@ jobs:
       - name: Ruff tests
         continue-on-error: true
         run: ruff check orders/tests/test_domain.py orders/tests/test_gui.py orders/tests/test_mvp03.py
+      - name: Ruff models
+        continue-on-error: true
+        run: ruff check orders/models.py
+      - name: Ruff URLs
+        continue-on-error: true
+        run: ruff check orders/urls.py
+      - name: Ruff roles
+        continue-on-error: true
+        run: ruff check accounts/roles.py
       - name: Ruff full gate
         run: ruff check .
