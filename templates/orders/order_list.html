@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Pedidos — Empório Pedidos{% endblock %}
 {% block content %}
-<div class="page-heading"><div><div class="eyebrow">Operação</div><h1>Pedidos</h1></div></div>
+<div class="page-heading">
+  <div><div class="eyebrow">Operação</div><h1>Pedidos</h1><p>Lançamento, acompanhamento e conferência operacional.</p></div>
+  {% if perms.orders.add_order and perms.orders.add_orderitem %}<a class="button primary" href="{% url 'order-create' %}">Novo pedido</a>{% endif %}
+</div>
 <form method="get" class="filter-bar filters-wide">
   <input name="q" value="{{ request.GET.q }}" placeholder="Pedido, empresa, local ou observação">
   <input type="date" name="delivery_date" value="{{ request.GET.delivery_date }}">
