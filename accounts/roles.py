@@ -47,7 +47,7 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
     },
     ROLE_ATTENDANCE: {
         *_model_permissions("orders", "company", ("add", "change", "view")),
-        *_model_permissions("orders", "product", ("view",)),
+        *_model_permissions("orders", "product", ("add", "change", "view")),
         *_model_permissions("orders", "order", ("add", "change", "view")),
         *_model_permissions("orders", "orderitem", ("add", "change", "delete", "view")),
         *_model_permissions("orders", "orderstatushistory", ("add", "view")),
