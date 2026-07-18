@@ -17,6 +17,21 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: python manage.py check
       - run: python manage.py makemigrations --check --dry-run
+      - name: MVP03 catalog lifecycle
+        continue-on-error: true
+        run: pytest -q orders/tests/test_mvp03.py::Mvp03OperationalFlowTests::test_attendance_can_create_update_and_soft_deactivate_catalog_records --tb=line --disable-warnings
+      - name: MVP03 idempotent order creation
+        continue-on-error: true
+        run: pytest -q orders/tests/test_mvp03.py::Mvp03OperationalFlowTests::test_order_creation_is_atomic_calculated_audited_and_idempotent --tb=line --disable-warnings
+      - name: MVP03 inactive records
+        continue-on-error: true
+        run: pytest -q orders/tests/test_mvp03.py::Mvp03OperationalFlowTests::test_inactive_company_and_product_are_rejected_for_new_orders --tb=line --disable-warnings
+      - name: MVP03 frozen price editing
+        continue-on-error: true
+        run: pytest -q orders/tests/test_mvp03.py::Mvp03OperationalFlowTests::test_editing_quantity_preserves_frozen_unit_price --tb=line --disable-warnings
+      - name: MVP03 permissions
+        continue-on-error: true
+        run: pytest -q orders/tests/test_mvp03.py::Mvp03OperationalFlowTests::test_production_profile_cannot_open_order_creation --tb=line --disable-warnings
       - name: Test MVP-03 operational flow
         run: pytest -q orders/tests/test_mvp03.py --tb=line --disable-warnings
       - name: Test existing domain and GUI
