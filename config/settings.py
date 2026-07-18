@@ -62,7 +62,7 @@ TEMPLATES = [
                 "accounts.context_processors.user_roles",
             ],
         },
-    }
+    },
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
