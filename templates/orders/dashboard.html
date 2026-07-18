@@ -17,6 +17,10 @@
   <article class="metric"><span>Fechamentos pendentes</span><strong>{{ pending_closings }}</strong></article>
 </section>
 
+{% if assistant_panel_enabled %}
+  {% include "orders/_operational_assistant.html" %}
+{% endif %}
+
 <section class="panel">
   <div class="panel-heading">
     <div><div class="eyebrow">Hoje</div><h2>Pedidos por status</h2></div>
@@ -54,4 +58,60 @@
   </div>
 </section>
 {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(() => {
+  const resetLabel = (button) => {
+    window.setTimeout(() => {
+      button.textContent = "Copiar texto";
+    }, 1800);
+  };
+
+  const fallbackCopy = (target) => {
+    target.focus();
+    target.select();
+    target.setSelectionRange(0, target.value.length);
+    const copied = document.execCommand("copy");
+    window.getSelection()?.removeAllRanges();
+    return copied;
+  };
+
+  document.querySelectorAll(".assistant-copy-button").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const target = document.getElementById(button.dataset.copyTarget);
+      const status = button.parentElement.querySelector(".assistant-copy-status");
+      if (!target) {
+        return;
+      }
+
+      let copied = false;
+      if (window.isSecureContext && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(target.value);
+          copied = true;
+        } catch (error) {
+          copied = false;
+        }
+      }
+      if (!copied) {
+        try {
+          copied = fallbackCopy(target);
+        } catch (error) {
+          copied = false;
+        }
+      }
+
+      button.textContent = copied ? "Copiado" : "Selecione e copie";
+      if (status) {
+        status.textContent = copied
+          ? "Mensagem copiada para a área de transferência."
+          : "Cópia automática indisponível neste navegador.";
+      }
+      resetLabel(button);
+    });
+  });
+})();
+</script>
 {% endblock %}
