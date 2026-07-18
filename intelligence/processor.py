@@ -17,7 +17,7 @@ RETRY_DELAYS_MINUTES = (15, 30, 60, 120)
 
 def _create_system_alert(event: AIEvent, *, code: str) -> None:
     key = _hash_payload({"system_alert": str(event.pk), "code": code})
-    AIRecommendation.objects.get_or_create(
+    AIRecommendation.objects.update_or_create(
         idempotency_key=key,
         defaults={
             "event": event,
@@ -31,6 +31,7 @@ def _create_system_alert(event: AIEvent, *, code: str) -> None:
             "action_suggested": "Administrador: revisar configuração, cota ou conectividade.",
             "evidence": {"event_type": event.event_type, "error_code": code},
             "confidence": 1,
+            "status": AIRecommendation.Status.NEW,
             "expires_at": timezone.now() + timedelta(days=30),
         },
     )
@@ -117,6 +118,7 @@ def process_next_event() -> AIRecommendation | None:
         return None
 
     prompt = _prompt_version()
+    run_sequence = AIAnalysisRun.objects.filter(event=event).count() + 1
     run = AIAnalysisRun.objects.create(
         event=event,
         provider="deterministic",
@@ -124,7 +126,7 @@ def process_next_event() -> AIRecommendation | None:
         prompt_version=prompt.version,
         input_hash=_hash_payload(event.payload),
         sanitized_input=event.payload,
-        idempotency_key=f"{event.idempotency_key}:attempt:{event.attempts}",
+        idempotency_key=f"{event.idempotency_key}:run:{run_sequence}",
     )
     forbidden_terms: tuple[str, ...] = ()
     try:
