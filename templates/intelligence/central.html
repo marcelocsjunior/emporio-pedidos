@@ -85,6 +85,12 @@
       <span>Status: <strong>{{ recommendation.get_status_display }}</strong></span>
       <span>Confiança: <strong>{{ recommendation.confidence|floatformat:1 }}</strong></span>
     </footer>
+    {% if can_process and recommendation.category == "system" and recommendation.status != "expired" %}
+    <form method="post" action="{% url 'intelligence:retry' recommendation.pk %}" class="feedback-form">
+      {% csrf_token %}
+      <button class="button compact" type="submit">Reprocessar evento</button>
+    </form>
+    {% endif %}
     {% if perms.intelligence.add_aifeedback and recommendation.status != "expired" %}
     <form method="post" action="{% url 'intelligence:feedback' recommendation.pk %}" class="feedback-form">
       {% csrf_token %}

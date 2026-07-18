@@ -6,13 +6,14 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
+from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView
 from orders.services import record_audit
 
 from .access import user_can_process_ai, visible_recommendations_for_user
 from .engine import audit_manual_enqueue, enqueue_due_events
-from .models import AIFeedback, AIRecommendation, DataContext
+from .models import AIFeedback, AIEvent, AIRecommendation, DataContext
 
 
 class CentralIntelligenceView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -95,6 +96,50 @@ class RecommendationFeedbackView(LoginRequiredMixin, PermissionRequiredMixin, Vi
             },
         )
         messages.success(request, "Avaliação registrada.")
+        return redirect("intelligence:central")
+
+
+class FailedEventRetryView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "intelligence.process_ai_events"
+    raise_exception = True
+    http_method_names = ("post",)
+
+    @transaction.atomic
+    def post(self, request: HttpRequest, pk) -> HttpResponse:
+        recommendation = get_object_or_404(
+            visible_recommendations_for_user(request.user).select_for_update(),
+            pk=pk,
+            category=AIRecommendation.Category.SYSTEM,
+        )
+        event = get_object_or_404(
+            AIEvent.objects.select_for_update(),
+            pk=recommendation.source_id,
+            status=AIEvent.Status.FAILED,
+        )
+        event.status = AIEvent.Status.PENDING
+        event.attempts = 0
+        event.next_attempt_at = timezone.now()
+        event.locked_at = None
+        event.last_error_code = ""
+        event.save(
+            update_fields=(
+                "status",
+                "attempts",
+                "next_attempt_at",
+                "locked_at",
+                "last_error_code",
+                "updated_at",
+            )
+        )
+        recommendation.status = AIRecommendation.Status.EXPIRED
+        recommendation.save(update_fields=("status", "updated_at"))
+        record_audit(
+            actor=request.user,
+            action="intelligence.failed_event_requeued",
+            entity=event,
+            payload={"recommendation_id": str(recommendation.pk)},
+        )
+        messages.success(request, "Evento reenfileirado para uma nova sequência de tentativas.")
         return redirect("intelligence:central")
 
 

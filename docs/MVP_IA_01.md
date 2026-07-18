@@ -118,7 +118,8 @@ Falhas temporárias são repetidas até cinco vezes:
 4. após 60 minutos;
 5. após 120 minutos.
 
-Após o limite, o evento falha e gera alerta interno para o Administrador.
+Após o limite, o evento falha e gera alerta interno para o Administrador. O Administrador pode
+reabrir uma nova sequência de tentativas pela própria Central Inteligente, com auditoria.
 
 ## Implantação
 
