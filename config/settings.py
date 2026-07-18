@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "accounts.apps.AccountsConfig",
     "orders",
     "intelligence.apps.IntelligenceConfig",
+    "customer_portal.apps.CustomerPortalConfig",
 ]
 
 MIDDLEWARE = [
