@@ -63,7 +63,9 @@ def _save_order_items(*, formset, order: Order) -> tuple[list[str], list[str]]:
     return saved_ids, deleted_ids
 
 
-def create_order_from_forms(*, order_form, item_formset, actor, creation_key: str) -> tuple[Order, bool]:
+def create_order_from_forms(
+    *, order_form, item_formset, actor, creation_key: str
+) -> tuple[Order, bool]:
     existing = Order.objects.filter(creation_key=creation_key).first()
     if existing:
         return existing, False
@@ -121,7 +123,9 @@ def update_order_from_forms(*, order: Order, order_form, item_formset, actor) ->
     deleted_ids: list[str] = []
     if item_formset is not None:
         if locked.status != Order.Status.PENDING:
-            raise ValidationError("Os itens só podem ser alterados enquanto o pedido está pendente.")
+            raise ValidationError(
+                "Os itens só podem ser alterados enquanto o pedido está pendente."
+            )
         saved_ids, deleted_ids = _save_order_items(formset=item_formset, order=locked)
 
     locked.refresh_from_db()
