@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{% if creating %}Novo produto{% else %}Editar produto{% endif %} — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><div class="eyebrow">Catálogo</div><h1>{% if creating %}Novo produto{% else %}Editar produto{% endif %}</h1><p>O preço atual será congelado em cada novo pedido.</p></div>
+  <a class="button ghost" href="{% url 'product-list' %}">Voltar</a>
+</div>
+<section class="panel form-panel narrow-form">
+  <form method="post" class="operational-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-grid">
+      {% for field in form %}
+      <div class="field-group">
+        <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>
+        {{ field }}
+        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+        {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="form-actions">
+      <a class="button ghost" href="{% url 'product-list' %}">Cancelar</a>
+      <button class="button primary" type="submit">{% if creating %}Cadastrar produto{% else %}Salvar alterações{% endif %}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
