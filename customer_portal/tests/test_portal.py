@@ -7,8 +7,6 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.roles import ROLE_ATTENDANCE, ensure_roles
-from orders.models import AuditEvent, Company, Order, Product
-
 from customer_portal.forms import CustomerRequestForm
 from customer_portal.models import (
     CustomerDeliveryLocation,
@@ -22,6 +20,7 @@ from customer_portal.services import (
     request_correction,
     submit_request,
 )
+from orders.models import AuditEvent, Company, Order, Product
 
 pytestmark = pytest.mark.django_db
 
