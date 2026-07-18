@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Solicitações de clientes — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Atendimento</div>
+    <h1>Solicitações de clientes</h1>
+    <p>Confira os dados antes de criar qualquer pedido oficial.</p>
+  </div>
+</div>
+
+<form method="get" class="filter-bar">
+  <input class="form-control" type="search" name="q" value="{{ request.GET.q }}" placeholder="Protocolo, empresa ou usuário">
+  <select class="form-control" name="status">
+    <option value="">Pendentes de atendimento</option>
+    {% for value, label in status_choices %}<option value="{{ value }}"{% if request.GET.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <input class="form-control" type="date" name="delivery_date" value="{{ request.GET.delivery_date }}">
+  <button class="button" type="submit">Filtrar</button>
+</form>
+
+<section class="panel">
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Protocolo</th><th>Empresa</th><th>Entrega</th><th>Status</th><th>Total</th><th></th></tr></thead>
+      <tbody>
+      {% for item in customer_requests %}
+        <tr>
+          <td><strong>{{ item.protocol }}</strong><br><small>{{ item.created_at|date:"d/m/Y H:i" }}</small></td>
+          <td>{{ item.company.name }}<br><small>{{ item.requested_by }}</small></td>
+          <td>{{ item.delivery_date|date:"d/m/Y" }}{% if item.delivery_time %} às {{ item.delivery_time|time:"H:i" }}{% endif %}</td>
+          <td><span class="status-badge status-{{ item.status }}">{{ item.get_status_display }}</span></td>
+          <td>R$ {{ item.total_amount|floatformat:2 }}</td>
+          <td><a class="button compact primary" href="{% url 'customer_portal:request-review' item.pk %}">Conferir</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="empty-state">Nenhuma solicitação encontrada.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% include "partials/pagination.html" %}
+{% endblock %}
