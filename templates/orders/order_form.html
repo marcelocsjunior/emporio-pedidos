@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{% if creating %}Novo pedido{% else %}Editar {{ order.number }}{% endif %} — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <div class="eyebrow">Operação</div>
+    <h1>{% if creating %}Novo pedido{% else %}Editar {{ order.number }}{% endif %}</h1>
+    <p>{% if creating %}Preencha a entrega e adicione os produtos solicitados.{% else %}Ajuste somente os dados ainda liberados para este status.{% endif %}</p>
+  </div>
+  <a class="button ghost" href="{% if creating %}{% url 'order-list' %}{% else %}{% url 'order-detail' order.pk %}{% endif %}">Voltar</a>
+</div>
+
+<form method="post" class="operational-form" id="order-form" novalidate>
+  {% csrf_token %}
+  {% if form.creation_key %}{{ form.creation_key }}{% for error in form.creation_key.errors %}<div class="form-errors">{{ error }}</div>{% endfor %}{% endif %}
+  {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+
+  <section class="panel form-panel">
+    <div class="panel-heading"><div><div class="eyebrow">Identificação</div><h2>Dados do pedido</h2></div></div>
+    <div class="form-grid two-columns">
+      {% for field in form %}
+        {% if field.name != "creation_key" %}
+        <div class="field-group {% if field.name == 'delivery_location' or field.name == 'notes' %}full-width{% endif %}">
+          <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>
+          {{ field }}
+          {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+          {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if can_edit_items and formset %}
+  <section class="panel form-panel">
+    <div class="panel-heading">
+      <div><div class="eyebrow">Composição</div><h2>Itens do pedido</h2><p>O preço atual do produto será congelado ao salvar.</p></div>
+      <button class="button" type="button" id="add-item">Adicionar item</button>
+    </div>
+    {{ formset.management_form }}
+    {% if formset.non_form_errors %}<div class="form-errors">{{ formset.non_form_errors }}</div>{% endif %}
+    <div class="order-items" id="order-items">
+      {% for item_form in formset.forms %}
+      <div class="order-item-row{% if item_form.DELETE.value %} is-removed{% endif %}" data-item-row>
+        {{ item_form.id }}
+        <div class="field-group item-product">
+          <label for="{{ item_form.product.id_for_label }}">Produto *</label>
+          {{ item_form.product }}
+          {% for error in item_form.product.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="field-group item-quantity">
+          <label for="{{ item_form.quantity.id_for_label }}">Quantidade *</label>
+          {{ item_form.quantity }}
+          {% for error in item_form.quantity.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="item-remove">
+          <span class="delete-field">{{ item_form.DELETE }}</span>
+          <button class="button compact danger-outline" type="button" data-remove-item>Remover</button>
+        </div>
+        {% if item_form.non_field_errors %}<div class="form-errors item-errors">{{ item_form.non_field_errors }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <template id="empty-item-template">
+      <div class="order-item-row" data-item-row>
+        {{ formset.empty_form.id }}
+        <div class="field-group item-product">
+          <label for="{{ formset.empty_form.product.id_for_label }}">Produto *</label>
+          {{ formset.empty_form.product }}
+        </div>
+        <div class="field-group item-quantity">
+          <label for="{{ formset.empty_form.quantity.id_for_label }}">Quantidade *</label>
+          {{ formset.empty_form.quantity }}
+        </div>
+        <div class="item-remove">
+          <span class="delete-field">{{ formset.empty_form.DELETE }}</span>
+          <button class="button compact danger-outline" type="button" data-remove-item>Remover</button>
+        </div>
+      </div>
+    </template>
+  </section>
+  {% elif not creating %}
+  <section class="panel locked-panel">
+    <div><div class="eyebrow">Composição protegida</div><h2>Itens congelados</h2><p>Após o recebimento, quantidades, produtos e preços não podem mais ser alterados.</p></div>
+    <div class="locked-items">
+      {% for item in order.items.all %}<div><strong>{{ item.product_name }}</strong><span>{{ item.quantity }} × R$ {{ item.unit_price|floatformat:2 }} = R$ {{ item.line_total|floatformat:2 }}</span></div>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="form-actions sticky-actions">
+    <a class="button ghost" href="{% if creating %}{% url 'order-list' %}{% else %}{% url 'order-detail' order.pk %}{% endif %}">Cancelar</a>
+    <button class="button primary" type="submit">{% if creating %}Criar pedido{% else %}Salvar alterações{% endif %}</button>
+  </div>
+</form>
+{% endblock %}
+{% block extra_scripts %}{% if can_edit_items and formset %}<script src="{% static 'js/order_form.js' %}" defer></script>{% endif %}{% endblock %}
