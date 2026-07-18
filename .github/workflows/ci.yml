@@ -17,5 +17,5 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: python manage.py check
       - run: python manage.py makemigrations --check --dry-run
-      - run: pytest -q
+      - run: pytest -q --tb=short --disable-warnings
       - run: ruff check .
