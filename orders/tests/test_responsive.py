@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import AnonymousUser, Group
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
@@ -51,6 +51,7 @@ class ResponsiveAndObservabilityTests(TestCase):
 
     def test_server_error_page_exposes_correlation_code(self):
         request = RequestFactory().get("/falha-controlada/")
+        request.user = AnonymousUser()
         request.request_id = "error-check-001"
 
         response = server_error(request)
