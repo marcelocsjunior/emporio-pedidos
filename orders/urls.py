@@ -1,8 +1,16 @@
 from django.urls import path
 
+from .closing_views import (
+    ClosingCsvExportView,
+    ClosingDetailView,
+    ClosingGenerateView,
+    ClosingListView,
+    ClosingNotesUpdateView,
+    ClosingRecalculateView,
+    ClosingStatusUpdateView,
+)
 from .views import (
     AuditListView,
-    ClosingListView,
     CompanyCreateView,
     CompanyListView,
     CompanyToggleActiveView,
@@ -47,5 +55,27 @@ urlpatterns = [
         name="order-status-update",
     ),
     path("fechamentos/", ClosingListView.as_view(), name="closing-list"),
+    path("fechamentos/gerar/", ClosingGenerateView.as_view(), name="closing-generate"),
+    path("fechamentos/<uuid:pk>/", ClosingDetailView.as_view(), name="closing-detail"),
+    path(
+        "fechamentos/<uuid:pk>/recalcular/",
+        ClosingRecalculateView.as_view(),
+        name="closing-recalculate",
+    ),
+    path(
+        "fechamentos/<uuid:pk>/status/",
+        ClosingStatusUpdateView.as_view(),
+        name="closing-status-update",
+    ),
+    path(
+        "fechamentos/<uuid:pk>/observacoes/",
+        ClosingNotesUpdateView.as_view(),
+        name="closing-notes-update",
+    ),
+    path(
+        "fechamentos/<uuid:pk>/exportar.csv",
+        ClosingCsvExportView.as_view(),
+        name="closing-export-csv",
+    ),
     path("auditoria/", AuditListView.as_view(), name="audit-list"),
 ]
