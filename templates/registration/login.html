@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Entrar — Empório Pedidos{% endblock %}
+{% block content %}
+<section class="auth-card">
+  <div class="eyebrow">Acesso interno</div>
+  <h1>Empório Pedidos</h1>
+  <p>Entre com seu usuário individual para acessar a operação.</p>
+  {% if form.errors %}<div class="message error">Usuário ou senha inválidos.</div>{% endif %}
+  <form method="post" class="stack-form">
+    {% csrf_token %}
+    <label>Usuário {{ form.username }}</label>
+    <label>Senha {{ form.password }}</label>
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <button type="submit" class="button primary">Entrar</button>
+  </form>
+</section>
+{% endblock %}
