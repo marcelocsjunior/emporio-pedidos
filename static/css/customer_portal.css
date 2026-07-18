@@ -38,6 +38,10 @@
     grid-template-columns: minmax(88px, 34%) minmax(0, 1fr);
   }
 
+  .portal-request-order {
+    min-width: 0;
+  }
+
   .portal-request-table .status-badge {
     max-width: 100%;
     white-space: normal;
