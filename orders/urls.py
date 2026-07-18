@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .assistant_views import OperationalDashboardView
 from .closing_views import (
     ClosingCsvExportView,
     ClosingDetailView,
@@ -15,7 +16,6 @@ from .views import (
     CompanyListView,
     CompanyToggleActiveView,
     CompanyUpdateView,
-    DashboardView,
     OrderCreateView,
     OrderDetailView,
     OrderListView,
@@ -28,7 +28,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path("", DashboardView.as_view(), name="dashboard"),
+    path("", OperationalDashboardView.as_view(), name="dashboard"),
     path("empresas/", CompanyListView.as_view(), name="company-list"),
     path("empresas/nova/", CompanyCreateView.as_view(), name="company-create"),
     path("empresas/<uuid:pk>/editar/", CompanyUpdateView.as_view(), name="company-update"),
