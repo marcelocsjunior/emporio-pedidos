@@ -279,7 +279,7 @@ def reject_request(*, request_id, actor, reason: str) -> CustomerOrderRequest:
 def approve_and_convert_request(*, request_id, actor) -> tuple[Order, bool]:
     customer_request = (
         CustomerOrderRequest.objects.select_for_update()
-        .select_related("company", "delivery_location", "converted_order")
+        .select_related("company", "delivery_location")
         .get(pk=request_id)
     )
 
