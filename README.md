@@ -20,6 +20,7 @@ Sistema web interno para gestão de empresas clientes, produtos, pedidos, produ�
 - Django 5.2 LTS
 - PostgreSQL em produção
 - SQLite apenas para desenvolvimento e testes locais
+- templates Django e CSS próprio, sem frontend externo
 
 ## Execução local
 
@@ -29,9 +30,12 @@ source .venv/bin/activate
 pip install -r requirements-dev.txt
 cp .env.example .env
 python manage.py migrate
+python manage.py bootstrap_roles
 python manage.py createsuperuser
 python manage.py runserver 0.0.0.0:8000
 ```
+
+Acesse `http://127.0.0.1:8000/`. O painel exige autenticação individual. Usuários com `must_change_password=True` são direcionados à troca obrigatória de senha.
 
 ## Validação
 
@@ -41,6 +45,12 @@ python manage.py makemigrations --check --dry-run
 pytest -q
 ruff check .
 ```
+
+## Documentação
+
+- `docs/ARQUITETURA.md`
+- `docs/ESCOPO_MVP.md`
+- `docs/MVP_02.md`
 
 ## Segurança operacional
 
