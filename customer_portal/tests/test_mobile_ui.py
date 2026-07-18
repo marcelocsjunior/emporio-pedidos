@@ -24,3 +24,7 @@ def test_request_list_mobile_contract():
     assert "padding: 12px 84px 2px 0" in css
     assert "orientation: landscape" in css
     assert "padding-right: 96px" in css
+    assert "(min-width: 701px) and (max-width: 900px)" in css
+    assert "(max-height: 500px)" in css
+    assert ".portal-request-table thead" in css
+    assert "padding: 12px 96px 2px 0" in css
