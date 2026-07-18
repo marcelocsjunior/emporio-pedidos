@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Empresas — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Cadastros</div><h1>Empresas</h1></div></div>
+<form method="get" class="filter-bar"><input name="q" value="{{ request.GET.q }}" placeholder="Buscar empresa, responsável, cidade ou telefone"><button class="button" type="submit">Buscar</button></form>
+<section class="panel"><div class="table-wrap"><table><thead><tr><th>Código</th><th>Empresa</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Tipo</th><th>Situação</th></tr></thead><tbody>
+{% for company in companies %}<tr><td>{{ company.code }}</td><td><strong>{{ company.name }}</strong></td><td>{{ company.responsible_name|default:"—" }}</td><td>{{ company.phone|default:"—" }}</td><td>{{ company.city|default:"—" }}</td><td>{{ company.get_customer_type_display }}</td><td>{% if company.active %}<span class="active-tag">Ativa</span>{% else %}<span class="inactive-tag">Inativa</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="7" class="empty">Nenhuma empresa encontrada.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% include "orders/pagination.html" %}
+{% endblock %}
