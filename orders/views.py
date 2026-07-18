@@ -265,7 +265,10 @@ class ProductUpdateView(SecurePermissionMixin, View):
                     },
                 },
             )
-        messages.success(request, "Produto atualizado. Pedidos anteriores mantêm o preço congelado.")
+        messages.success(
+            request,
+            "Produto atualizado. Pedidos anteriores mantêm o preço congelado.",
+        )
         return redirect("product-list")
 
 
@@ -347,7 +350,10 @@ class OrderCreateView(SecurePermissionMixin, View):
         creation_key = request.POST.get("creation_key", "").strip()
         existing = Order.objects.filter(creation_key=creation_key).first() if creation_key else None
         if existing:
-            messages.info(request, "Este pedido já havia sido salvo; nenhuma duplicidade foi criada.")
+            messages.info(
+                request,
+                "Este pedido já havia sido salvo; nenhuma duplicidade foi criada.",
+            )
             return redirect("order-detail", pk=existing.pk)
 
         draft = Order()
