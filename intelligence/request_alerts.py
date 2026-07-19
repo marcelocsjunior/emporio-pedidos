@@ -53,7 +53,12 @@ class RequestNotificationPanel:
 
 
 def _hash_payload(value: object) -> str:
-    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -73,12 +78,19 @@ def _delivery_label(customer_request: CustomerOrderRequest) -> str:
     return f"{date_label} · {customer_request.delivery_time:%H:%M}"
 
 
+def _submission_marker(customer_request: CustomerOrderRequest) -> str:
+    if customer_request.submitted_at is not None:
+        return customer_request.submitted_at.isoformat()
+    return f"{customer_request.status}:{customer_request.updated_at.isoformat()}"
+
+
 def _notification_payload(customer_request: CustomerOrderRequest) -> dict:
     item_quantity = sum(item.quantity for item in customer_request.items.all())
     return {
         "request_ref": customer_request.protocol,
         "company_ref": _company_ref(customer_request.company_id),
         "status": customer_request.status,
+        "submitted_at": _submission_marker(customer_request),
         "delivery_date": customer_request.delivery_date.isoformat(),
         "delivery_time": (
             customer_request.delivery_time.isoformat()
@@ -99,11 +111,13 @@ def _create_request_notification(
         .prefetch_related("items")
         .get(pk=customer_request.pk)
     )
+    submission_marker = _submission_marker(customer_request)
     idempotency_key = _hash_payload(
         {
             "event_type": EVENT_TYPE_REQUEST_SUBMITTED,
             "source_type": SOURCE_TYPE_CUSTOMER_REQUEST,
             "source_id": str(customer_request.pk),
+            "submission_marker": submission_marker,
         }
     )
     payload = _notification_payload(customer_request)
@@ -128,12 +142,19 @@ def _create_request_notification(
             "source_type": SOURCE_TYPE_CUSTOMER_REQUEST,
             "source_id": str(customer_request.pk),
             "title": f"Nova solicitação {customer_request.protocol}",
-            "summary": "Solicitação enviada pelo Portal B2B e aguardando conferência humana.",
-            "action_suggested": "Abrir a solicitação, conferir os dados e decidir o próximo passo.",
+            "summary": (
+                "Solicitação enviada pelo Portal B2B e aguardando "
+                "conferência humana."
+            ),
+            "action_suggested": (
+                "Abrir a solicitação, conferir os dados e decidir o próximo passo."
+            ),
             "evidence": {
                 **payload,
                 "reason": "Uma nova solicitação entrou na fila operacional.",
-                "risk": "A demora na conferência reduz o prazo disponível para atendimento.",
+                "risk": (
+                    "A demora na conferência reduz o prazo disponível para atendimento."
+                ),
                 "analysis_status": "not_required",
             },
             "confidence": Decimal("1.000"),
@@ -141,6 +162,16 @@ def _create_request_notification(
             "expires_at": timezone.now() + timedelta(days=7),
         },
     )
+    if created:
+        AIRecommendation.objects.filter(
+            category=CATEGORY_NEW_REQUEST,
+            source_type=SOURCE_TYPE_CUSTOMER_REQUEST,
+            source_id=str(customer_request.pk),
+            status=AIRecommendation.Status.NEW,
+        ).exclude(pk=recommendation.pk).update(
+            status=AIRecommendation.Status.EXPIRED,
+            updated_at=timezone.now(),
+        )
     return event, recommendation, created
 
 
@@ -203,8 +234,10 @@ def build_request_notification_panel(
         customer_request = customer_requests.get(recommendation.source_id)
         if customer_request is None:
             continue
-        evidence = recommendation.evidence or {}
         source_key = f"request:{customer_request.pk}"
+        if source_key in source_keys:
+            continue
+        evidence = recommendation.evidence or {}
         source_keys.add(source_key)
         notifications.append(
             ActiveRequestNotification(
