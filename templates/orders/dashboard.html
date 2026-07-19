@@ -18,7 +18,13 @@
 </section>
 
 {% if assistant_panel_enabled %}
+<div
+  id="operational-assistant-container"
+  data-refresh-url="{{ assistant_refresh_url }}"
+  data-refresh-seconds="{{ assistant_refresh_seconds }}"
+>
   {% include "orders/_operational_assistant.html" %}
+</div>
 {% endif %}
 
 <section class="panel">
@@ -78,40 +84,77 @@
     return copied;
   };
 
-  document.querySelectorAll(".assistant-copy-button").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const target = document.getElementById(button.dataset.copyTarget);
-      const status = button.parentElement.querySelector(".assistant-copy-status");
-      if (!target) {
-        return;
-      }
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest(".assistant-copy-button");
+    if (!button) {
+      return;
+    }
+    const target = document.getElementById(button.dataset.copyTarget);
+    const status = button.parentElement.querySelector(".assistant-copy-status");
+    if (!target) {
+      return;
+    }
 
-      let copied = false;
-      if (window.isSecureContext && navigator.clipboard) {
-        try {
-          await navigator.clipboard.writeText(target.value);
-          copied = true;
-        } catch (error) {
-          copied = false;
-        }
+    let copied = false;
+    if (window.isSecureContext && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(target.value);
+        copied = true;
+      } catch (error) {
+        copied = false;
       }
-      if (!copied) {
-        try {
-          copied = fallbackCopy(target);
-        } catch (error) {
-          copied = false;
-        }
+    }
+    if (!copied) {
+      try {
+        copied = fallbackCopy(target);
+      } catch (error) {
+        copied = false;
       }
+    }
 
-      button.textContent = copied ? "Copiado" : "Selecione e copie";
-      if (status) {
-        status.textContent = copied
-          ? "Mensagem copiada para a área de transferência."
-          : "Cópia automática indisponível neste navegador.";
-      }
-      resetLabel(button);
-    });
+    button.textContent = copied ? "Copiado" : "Selecione e copie";
+    if (status) {
+      status.textContent = copied
+        ? "Mensagem copiada para a área de transferência."
+        : "Cópia automática indisponível neste navegador.";
+    }
+    resetLabel(button);
   });
+
+  const container = document.getElementById("operational-assistant-container");
+  const refreshUrl = container?.dataset.refreshUrl;
+  const refreshSeconds = Number(container?.dataset.refreshSeconds || 15);
+  let refreshing = false;
+
+  const refreshAssistant = async () => {
+    if (!container || !refreshUrl || refreshing || document.hidden) {
+      return;
+    }
+    refreshing = true;
+    try {
+      const response = await fetch(refreshUrl, {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {"X-Requested-With": "XMLHttpRequest"},
+      });
+      if (response.ok) {
+        container.innerHTML = await response.text();
+      }
+    } catch (error) {
+      // A atualização falha silenciosamente; o dashboard continua operacional.
+    } finally {
+      refreshing = false;
+    }
+  };
+
+  if (container && refreshUrl) {
+    window.setInterval(refreshAssistant, Math.max(10, refreshSeconds) * 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        refreshAssistant();
+      }
+    });
+  }
 })();
 </script>
 {% endblock %}
