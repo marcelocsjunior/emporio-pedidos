@@ -51,6 +51,11 @@ class ActiveAssistantAlertMarkupTests(TestCase):
 
     def test_dashboard_exposes_interactive_alert_contract(self):
         response = self.client.get(reverse("dashboard"))
+        order_url = reverse("order-detail", args=[self.order.pk])
+        viewed_url = reverse(
+            "assistant-recommendation-viewed",
+            args=[self.recommendation.pk],
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="assistant-new-order-badge"')
@@ -62,14 +67,8 @@ class ActiveAssistantAlertMarkupTests(TestCase):
             response,
             f'data-active-notification-id="{self.recommendation.pk}"',
         )
-        self.assertContains(
-            response,
-            f'data-order-url="{reverse("order-detail", args=[self.order.pk])}"',
-        )
-        self.assertContains(
-            response,
-            f'data-view-url="{reverse("assistant-recommendation-viewed", args=[self.recommendation.pk])}"',
-        )
+        self.assertContains(response, f'data-order-url="{order_url}"')
+        self.assertContains(response, f'data-view-url="{viewed_url}"')
         self.assertContains(response, "emporioAssistantSoundEnabled")
 
     def test_partial_refresh_exposes_new_order_metadata_without_provider_call(self):
