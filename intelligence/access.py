@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.conf import settings
 from django.db.models import Q, QuerySet
 
+from .active_assistant import CATEGORY_NEW_ORDER
 from .models import AIRecommendation
 
 CATEGORY_PERMISSIONS = {
@@ -33,6 +34,7 @@ def visible_recommendations_for_user(user) -> QuerySet[AIRecommendation]:
         for category, permission in CATEGORY_PERMISSIONS.items()
         if user.has_perm(permission)
     ]
-    if not categories:
-        return queryset.none()
-    return queryset.filter(Q(category__in=categories))
+    filters = Q(category__in=categories)
+    if user.has_perm("orders.view_order"):
+        filters |= Q(category=CATEGORY_NEW_ORDER)
+    return queryset.filter(filters)
