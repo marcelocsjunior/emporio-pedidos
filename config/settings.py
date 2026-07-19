@@ -141,6 +141,7 @@ AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "60"))
 AI_POLL_SECONDS = int(os.getenv("AI_POLL_SECONDS", "900"))
 AI_MAX_ATTEMPTS = int(os.getenv("AI_MAX_ATTEMPTS", "5"))
 AI_RETENTION_DAYS = int(os.getenv("AI_RETENTION_DAYS", "365"))
+AI_ASSISTANT_PANEL_ENABLED = os.getenv("AI_ASSISTANT_PANEL_ENABLED", "0") == "1"
 
 LOGGING = {
     "version": 1,
