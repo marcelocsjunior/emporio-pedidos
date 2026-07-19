@@ -86,6 +86,7 @@ class RequestSubmissionAlertTests(TestCase):
             category=CATEGORY_NEW_REQUEST,
             source_type=SOURCE_TYPE_CUSTOMER_REQUEST,
             source_id=str(self.customer_request.pk),
+            status=AIRecommendation.Status.NEW,
         )
 
     def test_portal_submission_creates_one_immediate_persistent_alert(self):
@@ -115,6 +116,41 @@ class RequestSubmissionAlertTests(TestCase):
                 source_id=str(self.customer_request.pk),
             ).count(),
             1,
+        )
+
+    def test_resubmission_creates_new_transition_and_expires_previous_alert(self):
+        self._submit_from_portal()
+        first_recommendation = self._recommendation()
+        CustomerOrderRequest.objects.filter(pk=self.customer_request.pk).update(
+            status=CustomerOrderRequest.Status.CORRECTION_REQUESTED,
+            review_notes="Ajustar dados antes de reenviar.",
+        )
+
+        response = self._submit_from_portal()
+
+        self.assertEqual(response.status_code, 302)
+        recommendations = AIRecommendation.objects.filter(
+            category=CATEGORY_NEW_REQUEST,
+            source_type=SOURCE_TYPE_CUSTOMER_REQUEST,
+            source_id=str(self.customer_request.pk),
+        )
+        self.assertEqual(recommendations.count(), 2)
+        first_recommendation.refresh_from_db()
+        self.assertEqual(
+            first_recommendation.status,
+            AIRecommendation.Status.EXPIRED,
+        )
+        self.assertEqual(
+            recommendations.filter(status=AIRecommendation.Status.NEW).count(),
+            1,
+        )
+        self.assertEqual(
+            AIEvent.objects.filter(
+                event_type=EVENT_TYPE_REQUEST_SUBMITTED,
+                source_type=SOURCE_TYPE_CUSTOMER_REQUEST,
+                source_id=str(self.customer_request.pk),
+            ).count(),
+            2,
         )
 
     def test_reviewer_sees_request_in_dashboard_and_refresh_contract(self):
