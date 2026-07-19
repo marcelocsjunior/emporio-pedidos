@@ -1,5 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Painel — Empório Pedidos{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/assistant_alerts.css' %}">
+{% endblock %}
 {% block content %}
 <div class="page-heading">
   <div>
@@ -7,6 +11,26 @@
     <h1>Painel operacional</h1>
     <p>Leitura rápida dos pedidos, produção e fechamentos.</p>
   </div>
+  {% if assistant_active_enabled %}
+  <div class="assistant-alert-toolbar" aria-label="Alertas de novos pedidos">
+    <a
+      id="assistant-new-order-badge"
+      class="assistant-alert-badge{% if active_notification_panel.new_count %} has-alert{% endif %}"
+      href="#operational-assistant-container"
+      {% if not active_notification_panel.new_count %}hidden{% endif %}
+    >
+      <span class="assistant-alert-badge-dot" aria-hidden="true"></span>
+      <strong id="assistant-new-order-badge-count">{{ active_notification_panel.new_count|default:0 }}</strong>
+      <span id="assistant-new-order-badge-label">novo{{ active_notification_panel.new_count|pluralize }} pedido{{ active_notification_panel.new_count|pluralize }}</span>
+    </a>
+    <button
+      id="assistant-sound-toggle"
+      class="button compact secondary assistant-sound-toggle"
+      type="button"
+      aria-pressed="false"
+    >Ativar som</button>
+  </div>
+  {% endif %}
 </div>
 
 <section class="metric-grid">
@@ -25,6 +49,35 @@
 >
   {% include "orders/_operational_assistant.html" %}
 </div>
+{% endif %}
+
+{% if assistant_active_enabled %}
+<section
+  id="assistant-live-alert"
+  class="assistant-live-alert"
+  role="alert"
+  aria-live="assertive"
+  aria-atomic="true"
+  aria-labelledby="assistant-live-alert-title"
+  hidden
+>
+  <div class="assistant-live-alert-header">
+    <span class="severity-tag">Novo pedido recebido</span>
+    <span id="assistant-live-alert-reference" class="status-tag"></span>
+  </div>
+  <h2 id="assistant-live-alert-title">Novo pedido</h2>
+  <p id="assistant-live-alert-company" class="assistant-live-alert-company"></p>
+  <p id="assistant-live-alert-delivery" class="assistant-live-alert-delivery"></p>
+  <p id="assistant-live-alert-summary"></p>
+  <div class="assistant-live-alert-actions">
+    <a id="assistant-live-alert-open" class="button compact" href="#">Abrir pedido</a>
+    <button
+      id="assistant-live-alert-view"
+      class="button compact secondary assistant-view-button"
+      type="button"
+    >Marcar como visto</button>
+  </div>
+</section>
 {% endif %}
 
 <section class="panel">
@@ -69,6 +122,8 @@
 {% block extra_scripts %}
 <script>
 (() => {
+  const SOUND_STORAGE_KEY = "emporioAssistantSoundEnabled";
+
   const resetLabel = (button) => {
     window.setTimeout(() => {
       button.textContent = "Copiar texto";
@@ -93,14 +148,166 @@
     return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : "";
   };
 
+  const readSoundPreference = () => {
+    try {
+      return window.localStorage.getItem(SOUND_STORAGE_KEY) === "1";
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const saveSoundPreference = (enabled) => {
+    try {
+      window.localStorage.setItem(SOUND_STORAGE_KEY, enabled ? "1" : "0");
+    } catch (error) {
+      // A preferência pode não persistir em navegação privada; o alerta visual continua ativo.
+    }
+  };
+
   const container = document.getElementById("operational-assistant-container");
   const refreshUrl = container?.dataset.refreshUrl;
   const refreshSeconds = Number(container?.dataset.refreshSeconds || 15);
+  const badge = document.getElementById("assistant-new-order-badge");
+  const badgeCount = document.getElementById("assistant-new-order-badge-count");
+  const badgeLabel = document.getElementById("assistant-new-order-badge-label");
+  const soundToggle = document.getElementById("assistant-sound-toggle");
+  const liveAlert = document.getElementById("assistant-live-alert");
+  const liveAlertReference = document.getElementById("assistant-live-alert-reference");
+  const liveAlertTitle = document.getElementById("assistant-live-alert-title");
+  const liveAlertCompany = document.getElementById("assistant-live-alert-company");
+  const liveAlertDelivery = document.getElementById("assistant-live-alert-delivery");
+  const liveAlertSummary = document.getElementById("assistant-live-alert-summary");
+  const liveAlertOpen = document.getElementById("assistant-live-alert-open");
+  const liveAlertView = document.getElementById("assistant-live-alert-view");
+
+  const knownNotificationIds = new Set();
+  let activeToastNotificationId = "";
   let refreshing = false;
+  let soundEnabled = readSoundPreference();
+  let audioContext = null;
+
+  const updateSoundButton = () => {
+    if (!soundToggle) {
+      return;
+    }
+    soundToggle.setAttribute("aria-pressed", soundEnabled ? "true" : "false");
+    soundToggle.textContent = soundEnabled ? "Som ligado" : "Ativar som";
+    soundToggle.title = soundEnabled
+      ? "Desativar o som dos alertas de novos pedidos"
+      : "Ativar o som dos alertas de novos pedidos";
+  };
+
+  const playAlertSound = async () => {
+    if (!soundEnabled) {
+      return;
+    }
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) {
+        return;
+      }
+      audioContext = audioContext || new AudioContext();
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(740, audioContext.currentTime);
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.16, audioContext.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.28);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (error) {
+      // Alguns navegadores bloqueiam áudio sem interação recente; o alerta visual permanece ativo.
+    }
+  };
+
+  const collectActiveNotifications = () => {
+    if (!container) {
+      return [];
+    }
+    return Array.from(container.querySelectorAll("[data-active-notification-id]")).map((node) => ({
+      id: node.dataset.activeNotificationId || "",
+      orderUrl: node.dataset.orderUrl || "#",
+      viewUrl: node.dataset.viewUrl || "",
+      reference: node.dataset.reference || "",
+      company: node.dataset.company || "",
+      delivery: node.dataset.delivery || "",
+      title: node.dataset.title || "Novo pedido",
+      summary: node.dataset.summary || "Pedido disponível para conferência.",
+    })).filter((notification) => notification.id);
+  };
+
+  const updateBadge = () => {
+    if (!badge || !badgeCount || !badgeLabel || !container) {
+      return;
+    }
+    const panel = container.querySelector(".operational-assistant");
+    const count = Number(panel?.dataset.activeNewCount || 0);
+    badgeCount.textContent = String(count);
+    badgeLabel.textContent = count === 1 ? "novo pedido" : "novos pedidos";
+    badge.hidden = count === 0;
+    badge.classList.toggle("has-alert", count > 0);
+  };
+
+  const hideLiveAlert = (notificationId = "") => {
+    if (!liveAlert || (notificationId && notificationId !== activeToastNotificationId)) {
+      return;
+    }
+    liveAlert.classList.remove("is-visible");
+    liveAlert.hidden = true;
+    activeToastNotificationId = "";
+  };
+
+  const showLiveAlert = (notification) => {
+    if (
+      !liveAlert || !liveAlertReference || !liveAlertTitle || !liveAlertCompany ||
+      !liveAlertDelivery || !liveAlertSummary || !liveAlertOpen || !liveAlertView
+    ) {
+      return;
+    }
+    activeToastNotificationId = notification.id;
+    liveAlert.dataset.notificationId = notification.id;
+    liveAlertReference.textContent = notification.reference;
+    liveAlertTitle.textContent = notification.title;
+    liveAlertCompany.textContent = notification.company;
+    liveAlertDelivery.textContent = notification.delivery;
+    liveAlertSummary.textContent = notification.summary;
+    liveAlertOpen.href = notification.orderUrl;
+    liveAlertView.dataset.notificationId = notification.id;
+    liveAlertView.dataset.viewUrl = notification.viewUrl;
+    liveAlertView.disabled = false;
+    liveAlertView.textContent = "Marcar como visto";
+    liveAlert.hidden = false;
+    window.requestAnimationFrame(() => liveAlert.classList.add("is-visible"));
+    playAlertSound();
+  };
+
+  const synchronizeAlertUi = (announceNew) => {
+    const notifications = collectActiveNotifications();
+    const currentIds = new Set(notifications.map((notification) => notification.id));
+    const newNotifications = notifications.filter(
+      (notification) => !knownNotificationIds.has(notification.id)
+    );
+
+    notifications.forEach((notification) => knownNotificationIds.add(notification.id));
+    updateBadge();
+
+    if (activeToastNotificationId && !currentIds.has(activeToastNotificationId)) {
+      hideLiveAlert(activeToastNotificationId);
+    }
+    if (announceNew && newNotifications.length) {
+      showLiveAlert(newNotifications[0]);
+    }
+  };
 
   const refreshAssistant = async () => {
     if (!container || !refreshUrl || refreshing || document.hidden) {
-      return;
+      return false;
     }
     refreshing = true;
     try {
@@ -111,15 +318,62 @@
       });
       if (response.ok) {
         container.innerHTML = await response.text();
+        synchronizeAlertUi(true);
+        return true;
       }
     } catch (error) {
       // A atualização falha silenciosamente; o dashboard continua operacional.
     } finally {
       refreshing = false;
     }
+    return false;
+  };
+
+  const markAsViewed = async (button) => {
+    const viewUrl = button.dataset.viewUrl;
+    if (!viewUrl) {
+      return;
+    }
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Registrando...";
+    try {
+      const response = await fetch(viewUrl, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "X-CSRFToken": getCookie("csrftoken"),
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      });
+      if (response.ok) {
+        hideLiveAlert(button.dataset.notificationId || "");
+        await refreshAssistant();
+        return;
+      }
+    } catch (error) {
+      // O operador pode tentar novamente; nenhuma ação no pedido foi executada.
+    }
+    button.disabled = false;
+    button.textContent = originalLabel || "Marcar como visto";
   };
 
   document.addEventListener("click", async (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    const soundButton = event.target.closest("#assistant-sound-toggle");
+    if (soundButton) {
+      soundEnabled = !soundEnabled;
+      saveSoundPreference(soundEnabled);
+      updateSoundButton();
+      if (soundEnabled) {
+        await playAlertSound();
+      }
+      return;
+    }
+
     const copyButton = event.target.closest(".assistant-copy-button");
     if (copyButton) {
       const target = document.getElementById(copyButton.dataset.copyTarget);
@@ -156,32 +410,14 @@
     }
 
     const viewButton = event.target.closest(".assistant-view-button");
-    if (!viewButton || !viewButton.dataset.viewUrl) {
-      return;
+    if (viewButton) {
+      await markAsViewed(viewButton);
     }
-    viewButton.disabled = true;
-    viewButton.textContent = "Registrando...";
-    try {
-      const response = await fetch(viewButton.dataset.viewUrl, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "X-CSRFToken": getCookie("csrftoken"),
-          "X-Requested-With": "XMLHttpRequest",
-        },
-      });
-      if (response.ok) {
-        await refreshAssistant();
-        return;
-      }
-    } catch (error) {
-      // O operador pode tentar novamente; nenhuma ação no pedido foi executada.
-    }
-    viewButton.disabled = false;
-    viewButton.textContent = "Marcar como visto";
   });
 
+  updateSoundButton();
   if (container && refreshUrl) {
+    synchronizeAlertUi(true);
     window.setInterval(refreshAssistant, Math.max(10, refreshSeconds) * 1000);
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) {
