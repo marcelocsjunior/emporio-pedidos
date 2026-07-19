@@ -39,7 +39,11 @@ class Command(BaseCommand):
         while True:
             recovered = recover_stale_events()
             created = enqueue_due_events()
-            active_processed = process_active_order_events(limit=limit)
+            active_processed = (
+                process_active_order_events(limit=limit)
+                if settings.AI_ACTIVE_ASSISTANT_ENABLED
+                else 0
+            )
             remaining = max(0, limit - active_processed)
             regular_processed = process_available_events(limit=remaining)
             processed = active_processed + regular_processed
