@@ -5,9 +5,6 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
-
-from orders.models import Company, Order, OrderItem, Product
-
 from intelligence.active_assistant import (
     CATEGORY_NEW_ORDER,
     EVENT_TYPE_ORDER_CREATED,
@@ -17,6 +14,7 @@ from intelligence.active_assistant import (
 )
 from intelligence.models import AIEvent, AIRecommendation
 from intelligence.providers import ProviderPermanentError
+from orders.models import Company, Order, OrderItem, Product
 
 
 @override_settings(
