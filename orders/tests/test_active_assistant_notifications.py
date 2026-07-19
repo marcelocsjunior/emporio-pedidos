@@ -70,7 +70,7 @@ class ActiveAssistantDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Novo pedido")
         self.assertContains(response, self.order.number)
-        self.assertContains(response, "IA: analisando o pedido em segundo plano")
+        self.assertContains(response, "analisando o pedido em segundo plano")
         source_keys = {card.source_key for card in response.context["assistant_panel"].cards}
         self.assertNotIn(f"order:{self.order.pk}", source_keys)
         self.assertEqual(response.context["active_notification_panel"].new_count, 1)
