@@ -1,15 +1,15 @@
 from django.urls import path
 
+from .active_review_views import ActiveRequestApproveView
+from .active_submit_views import ActivePortalRequestSubmitView
 from .portal_views import (
     PortalRequestCancelView,
     PortalRequestCreateView,
     PortalRequestDetailView,
     PortalRequestListView,
-    PortalRequestSubmitView,
     PortalRequestUpdateView,
 )
 from .review_views import (
-    RequestApproveView,
     RequestCorrectionView,
     RequestQueueView,
     RequestRejectView,
@@ -24,7 +24,11 @@ urlpatterns = [
     path("portal/nova/", PortalRequestCreateView.as_view(), name="request-create"),
     path("portal/<uuid:pk>/", PortalRequestDetailView.as_view(), name="request-detail"),
     path("portal/<uuid:pk>/editar/", PortalRequestUpdateView.as_view(), name="request-update"),
-    path("portal/<uuid:pk>/enviar/", PortalRequestSubmitView.as_view(), name="request-submit"),
+    path(
+        "portal/<uuid:pk>/enviar/",
+        ActivePortalRequestSubmitView.as_view(),
+        name="request-submit",
+    ),
     path("portal/<uuid:pk>/cancelar/", PortalRequestCancelView.as_view(), name="request-cancel"),
     path("solicitacoes/", RequestQueueView.as_view(), name="request-queue"),
     path("solicitacoes/<uuid:pk>/", RequestReviewView.as_view(), name="request-review"),
@@ -45,7 +49,7 @@ urlpatterns = [
     ),
     path(
         "solicitacoes/<uuid:pk>/aprovar/",
-        RequestApproveView.as_view(),
+        ActiveRequestApproveView.as_view(),
         name="request-approve",
     ),
 ]
