@@ -68,13 +68,11 @@
 
       <div class="assistant-card-actions">
         <a class="button compact" href="{{ notification.action_url }}">Abrir pedido</a>
-        <form
-          method="post"
-          action="{% url 'assistant-recommendation-viewed' notification.recommendation_id %}"
-        >
-          {% csrf_token %}
-          <button class="button compact secondary" type="submit">Marcar como visto</button>
-        </form>
+        <button
+          class="button compact secondary assistant-view-button"
+          type="button"
+          data-view-url="{% url 'assistant-recommendation-viewed' notification.recommendation_id %}"
+        >Marcar como visto</button>
       </div>
     </article>
     {% endfor %}
