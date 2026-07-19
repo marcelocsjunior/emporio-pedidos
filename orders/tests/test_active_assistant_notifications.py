@@ -3,7 +3,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth.models import Group
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -109,6 +109,26 @@ class ActiveAssistantDashboardTests(TestCase):
         self.assertEqual(response.context["active_notification_panel"].new_count, 0)
         source_keys = {card.source_key for card in response.context["assistant_panel"].cards}
         self.assertIn(f"order:{self.order.pk}", source_keys)
+
+    def test_mark_as_viewed_works_with_real_csrf_cookie(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.attendance)
+        dashboard = csrf_client.get(reverse("dashboard"))
+
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertIn("csrftoken", csrf_client.cookies)
+        token = csrf_client.cookies["csrftoken"].value
+        response = csrf_client.post(
+            reverse(
+                "assistant-recommendation-viewed",
+                kwargs={"pk": self.recommendation.pk},
+            ),
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.recommendation.refresh_from_db()
+        self.assertEqual(self.recommendation.status, AIRecommendation.Status.VIEWED)
 
     def test_user_without_order_permission_cannot_access_internal_endpoints(self):
         self.client.force_login(self.unprivileged)
