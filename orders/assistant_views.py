@@ -28,7 +28,11 @@ logger = logging.getLogger("emporio.ai")
 
 def _assistant_context(request: HttpRequest) -> dict:
     enabled = bool(settings.AI_ASSISTANT_PANEL_ENABLED)
-    active_enabled = bool(enabled and settings.AI_ACTIVE_ASSISTANT_ENABLED)
+    active_enabled = bool(
+        enabled
+        and settings.AI_ACTIVE_ASSISTANT_ENABLED
+        and request.user.has_perm("orders.view_order")
+    )
     context = {
         "assistant_panel_enabled": enabled,
         "assistant_active_enabled": active_enabled,
