@@ -57,6 +57,11 @@ class ActiveAssistantDashboardTests(TestCase):
         notify_order_created(self.order)
         self.recommendation = AIRecommendation.objects.get(source_id=str(self.order.pk))
 
+    def _set_creation_key(self, key: str) -> None:
+        session = self.client.session
+        session["emporio_order_creation_key"] = key
+        session.save()
+
     def test_dashboard_prioritizes_new_order_without_duplicate_card(self):
         self.client.force_login(self.attendance)
 
@@ -139,4 +144,36 @@ class ActiveAssistantDashboardTests(TestCase):
         self.assertFalse(created)
         self.assertFalse(
             AIRecommendation.objects.filter(source_id=str(other_order.pk)).exists()
+        )
+
+    def test_internal_order_creation_route_creates_one_notification(self):
+        self.client.force_login(self.attendance)
+        key = "c" * 32
+        self._set_creation_key(key)
+        today = timezone.localdate().isoformat()
+        payload = {
+            "creation_key": key,
+            "company": str(self.company.pk),
+            "order_date": today,
+            "delivery_date": today,
+            "delivery_time": "14:00",
+            "delivery_location": "Portaria piloto",
+            "notes": "",
+            "items-TOTAL_FORMS": "1",
+            "items-INITIAL_FORMS": "0",
+            "items-MIN_NUM_FORMS": "1",
+            "items-MAX_NUM_FORMS": "50",
+            "items-0-product": str(self.product.pk),
+            "items-0-quantity": "3",
+        }
+
+        first = self.client.post(reverse("order-create"), payload)
+        second = self.client.post(reverse("order-create"), payload)
+
+        self.assertEqual(first.status_code, 302)
+        self.assertEqual(second.status_code, 302)
+        created_order = Order.objects.get(creation_key=key)
+        self.assertEqual(
+            AIRecommendation.objects.filter(source_id=str(created_order.pk)).count(),
+            1,
         )
