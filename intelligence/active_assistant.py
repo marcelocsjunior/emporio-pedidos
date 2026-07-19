@@ -7,7 +7,8 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, time as datetime_time, timedelta
+from datetime import datetime, timedelta
+from datetime import time as datetime_time
 from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
 
@@ -15,10 +16,16 @@ from django.conf import settings
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
-
 from orders.models import Order
 
-from .models import AIAnalysisRun, AIEvent, AIPromptVersion, AIRecommendation, AIUsage, DataContext
+from .models import (
+    AIAnalysisRun,
+    AIEvent,
+    AIPromptVersion,
+    AIRecommendation,
+    AIUsage,
+    DataContext,
+)
 from .privacy import PrivacyBlocked, assert_payload_safe, sanitize_text
 from .providers import ProviderPermanentError, ProviderTransientError
 
