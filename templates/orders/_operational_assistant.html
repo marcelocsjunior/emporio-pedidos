@@ -1,4 +1,8 @@
-<section class="panel operational-assistant" aria-labelledby="operational-assistant-title">
+<section
+  class="panel operational-assistant"
+  aria-labelledby="operational-assistant-title"
+  data-active-new-count="{{ active_notification_panel.new_count|default:0 }}"
+>
   <div class="panel-heading operational-assistant-heading">
     <div>
       <div class="eyebrow">Central Comercial</div>
@@ -35,7 +39,18 @@
 
   <div class="assistant-card-list">
     {% for notification in active_notification_panel.notifications %}
-    <article class="assistant-card severity-{{ notification.severity }}" data-active-notification="true">
+    <article
+      class="assistant-card severity-{{ notification.severity }}"
+      data-active-notification="true"
+      data-active-notification-id="{{ notification.recommendation_id }}"
+      data-order-url="{{ notification.action_url }}"
+      data-view-url="{% url 'assistant-recommendation-viewed' notification.recommendation_id %}"
+      data-reference="{{ notification.reference }}"
+      data-company="{{ notification.company_name }}"
+      data-delivery="{{ notification.delivery_label }}"
+      data-title="{{ notification.title }}"
+      data-summary="{{ notification.summary }}"
+    >
       <header>
         <div class="assistant-card-tags">
           <span class="severity-tag">Novo pedido</span>
@@ -71,6 +86,7 @@
         <button
           class="button compact secondary assistant-view-button"
           type="button"
+          data-notification-id="{{ notification.recommendation_id }}"
           data-view-url="{% url 'assistant-recommendation-viewed' notification.recommendation_id %}"
         >Marcar como visto</button>
       </div>
