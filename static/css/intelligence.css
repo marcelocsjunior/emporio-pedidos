@@ -302,6 +302,10 @@
     align-items: flex-start;
   }
 
+  .operational-assistant-heading > div:first-child {
+    min-width: 0;
+  }
+
   .intelligence-filters select,
   .intelligence-filters button,
   .feedback-form input {
@@ -309,7 +313,8 @@
   }
 
   .assistant-total {
-    min-width: 0;
+    min-width: 86px;
+    flex: 0 0 auto;
   }
 
   .assistant-card-actions,
