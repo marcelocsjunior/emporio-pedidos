@@ -2,12 +2,14 @@
   class="panel operational-assistant"
   aria-labelledby="operational-assistant-title"
   data-active-new-count="{{ active_notification_panel.new_count|default:0 }}"
+  data-active-request-count="{{ request_notification_panel.new_count|default:0 }}"
+  data-request-queue-url="{% url 'customer_portal:request-queue' %}?status=submitted"
 >
   <div class="panel-heading operational-assistant-heading">
     <div>
       <div class="eyebrow">Central Comercial</div>
       <h2 id="operational-assistant-title">Assistente Operacional</h2>
-      <p>Novos pedidos e prioridades operacionais. A decisão permanece humana.</p>
+      <p>Solicitações, novos pedidos e prioridades operacionais. A decisão permanece humana.</p>
     </div>
     <div class="assistant-total" aria-label="Total de prioridades abertas">
       <strong>{{ assistant_total_open }}</strong>
@@ -15,6 +17,11 @@
     </div>
   </div>
 
+  {% if assistant_request_error %}
+  <div class="message warning">
+    Alertas da fila de solicitações temporariamente indisponíveis. A fila continua acessível.
+  </div>
+  {% endif %}
   {% if assistant_active_error %}
   <div class="message warning">
     Notificações de novos pedidos temporariamente indisponíveis. Os pedidos continuam acessíveis.
@@ -28,6 +35,10 @@
 
   <div class="assistant-metrics" aria-label="Resumo das prioridades">
     <div>
+      <strong>{{ request_notification_panel.new_count|default:0 }}</strong>
+      <span>Solicitações pendentes</span>
+    </div>
+    <div>
       <strong>{{ active_notification_panel.new_count|default:0 }}</strong>
       <span>Novos pedidos</span>
     </div>
@@ -38,6 +49,52 @@
   </div>
 
   <div class="assistant-card-list">
+    {% for notification in request_notification_panel.notifications %}
+    <article
+      class="assistant-card severity-{{ notification.severity }}"
+      data-request-notification="true"
+      data-request-notification-id="{{ notification.recommendation_id }}"
+      data-request-url="{{ notification.action_url }}"
+      data-view-url="{% url 'assistant-recommendation-viewed' notification.recommendation_id %}"
+      data-reference="{{ notification.reference }}"
+      data-company="{{ notification.company_name }}"
+      data-delivery="{{ notification.delivery_label }}"
+      data-title="{{ notification.title }}"
+      data-summary="{{ notification.summary }}"
+    >
+      <header>
+        <div class="assistant-card-tags">
+          <span class="severity-tag">Nova solicitação</span>
+          <span class="status-tag">{{ notification.reference }}</span>
+        </div>
+        <span class="assistant-delivery">{{ notification.delivery_label }}</span>
+      </header>
+      <h3>{{ notification.title }}</h3>
+      <p class="assistant-company">{{ notification.company_name }}</p>
+      <p>{{ notification.summary }}</p>
+      {% if notification.suggested_action %}
+      <div class="suggested-action">
+        <strong>Próxima ação:</strong> {{ notification.suggested_action }}
+      </div>
+      {% endif %}
+      {% if notification.reason %}
+      <p><strong>Motivo:</strong> {{ notification.reason }}</p>
+      {% endif %}
+      {% if notification.risk %}
+      <p><strong>Risco:</strong> {{ notification.risk }}</p>
+      {% endif %}
+      <div class="assistant-card-actions">
+        <a class="button compact" href="{{ notification.action_url }}">Abrir solicitação</a>
+        <button
+          class="button compact secondary request-notification-view-button"
+          type="button"
+          data-notification-id="{{ notification.recommendation_id }}"
+          data-view-url="{% url 'assistant-recommendation-viewed' notification.recommendation_id %}"
+        >Marcar como visto</button>
+      </div>
+    </article>
+    {% endfor %}
+
     {% for notification in active_notification_panel.notifications %}
     <article
       class="assistant-card severity-{{ notification.severity }}"
@@ -127,7 +184,7 @@
     </article>
     {% endfor %}
 
-    {% if not active_notification_panel.notifications and not assistant_panel.cards %}
+    {% if not request_notification_panel.notifications and not active_notification_panel.notifications and not assistant_panel.cards %}
     <div class="empty">Nenhuma prioridade operacional aberta para o seu perfil.</div>
     {% endif %}
   </div>
