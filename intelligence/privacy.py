@@ -15,6 +15,10 @@ DOCUMENT_PATTERN = re.compile(
     r"\d{2}[.\s-]?\d{3}[.\s-]?\d{3}[/\s-]?\d{4}[-\s]?\d{2})(?!\d)"
 )
 URL_PATTERN = re.compile(r"https?://\S+", re.IGNORECASE)
+OPERATIONAL_REFERENCE_PATTERN = re.compile(
+    r"\b(?:PED|SOL|EMP|PROD|COMP)-[A-Z0-9][A-Z0-9-]{3,}\b",
+    re.IGNORECASE,
+)
 TEXT_KEYS = {
     "title",
     "summary",
@@ -31,6 +35,10 @@ def _replace_terms(value: str, terms: Iterable[str]) -> str:
     for term in sorted(cleaned_terms, key=len, reverse=True):
         sanitized = re.sub(re.escape(term), "[DADO_REMOVIDO]", sanitized, flags=re.IGNORECASE)
     return sanitized
+
+
+def _mask_operational_references(value: str) -> str:
+    return OPERATIONAL_REFERENCE_PATTERN.sub("[REF_OPERACIONAL]", value)
 
 
 def sanitize_text(value: str, *, redaction_terms: Iterable[str] = ()) -> str:
@@ -55,7 +63,7 @@ def _iter_reviewable_text(value: object, *, parent_key: str = "") -> Iterator[st
 
 
 def assert_payload_safe(payload: dict, *, forbidden_terms: Iterable[str] = ()) -> None:
-    text = "\n".join(_iter_reviewable_text(payload))
+    text = _mask_operational_references("\n".join(_iter_reviewable_text(payload)))
     lowered = text.casefold()
     if EMAIL_PATTERN.search(text):
         raise PrivacyBlocked("email_detected")
