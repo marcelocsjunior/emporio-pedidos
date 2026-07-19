@@ -12,9 +12,10 @@ from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-from intelligence.active_assistant import CATEGORY_NEW_ORDER, EVENT_TYPE_ORDER_CREATED
 from intelligence.models import AIEvent, AIRecommendation
 from orders.models import Company, Product
+
+from intelligence.active_assistant import CATEGORY_NEW_ORDER, EVENT_TYPE_ORDER_CREATED
 
 
 @override_settings(
