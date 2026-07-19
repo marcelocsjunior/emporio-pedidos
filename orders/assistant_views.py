@@ -8,7 +8,9 @@ from django.db import transaction
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 from intelligence.active_assistant import (
     CATEGORY_NEW_ORDER,
@@ -80,6 +82,7 @@ def _assistant_context(request: HttpRequest) -> dict:
     return context
 
 
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class OperationalDashboardView(DashboardView):
     """Acrescenta prioridades assistidas sem alterar o fluxo operacional existente."""
 
