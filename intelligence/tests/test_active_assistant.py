@@ -72,7 +72,7 @@ class ActiveAssistantCoreTests(TestCase):
         self.assertNotIn(self.company.phone, serialized)
         self.assertNotIn(self.company.address, serialized)
         self.assertNotIn(self.order.delivery_location, serialized)
-        self.assertIn("[TELEFONE_REMOVIDO]", serialized)
+        self.assertIn("[DADO_REMOVIDO]", serialized)
 
     @override_settings(AI_ENABLED=False)
     def test_worker_enriches_same_notification_without_duplication(self):
