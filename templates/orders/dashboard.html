@@ -84,42 +84,14 @@
     return copied;
   };
 
-  document.addEventListener("click", async (event) => {
-    const button = event.target.closest(".assistant-copy-button");
-    if (!button) {
-      return;
-    }
-    const target = document.getElementById(button.dataset.copyTarget);
-    const status = button.parentElement.querySelector(".assistant-copy-status");
-    if (!target) {
-      return;
-    }
-
-    let copied = false;
-    if (window.isSecureContext && navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(target.value);
-        copied = true;
-      } catch (error) {
-        copied = false;
-      }
-    }
-    if (!copied) {
-      try {
-        copied = fallbackCopy(target);
-      } catch (error) {
-        copied = false;
-      }
-    }
-
-    button.textContent = copied ? "Copiado" : "Selecione e copie";
-    if (status) {
-      status.textContent = copied
-        ? "Mensagem copiada para a área de transferência."
-        : "Cópia automática indisponível neste navegador.";
-    }
-    resetLabel(button);
-  });
+  const getCookie = (name) => {
+    const prefix = `${name}=`;
+    const cookie = document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(prefix));
+    return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : "";
+  };
 
   const container = document.getElementById("operational-assistant-container");
   const refreshUrl = container?.dataset.refreshUrl;
@@ -146,6 +118,68 @@
       refreshing = false;
     }
   };
+
+  document.addEventListener("click", async (event) => {
+    const copyButton = event.target.closest(".assistant-copy-button");
+    if (copyButton) {
+      const target = document.getElementById(copyButton.dataset.copyTarget);
+      const status = copyButton.parentElement.querySelector(".assistant-copy-status");
+      if (!target) {
+        return;
+      }
+
+      let copied = false;
+      if (window.isSecureContext && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(target.value);
+          copied = true;
+        } catch (error) {
+          copied = false;
+        }
+      }
+      if (!copied) {
+        try {
+          copied = fallbackCopy(target);
+        } catch (error) {
+          copied = false;
+        }
+      }
+
+      copyButton.textContent = copied ? "Copiado" : "Selecione e copie";
+      if (status) {
+        status.textContent = copied
+          ? "Mensagem copiada para a área de transferência."
+          : "Cópia automática indisponível neste navegador.";
+      }
+      resetLabel(copyButton);
+      return;
+    }
+
+    const viewButton = event.target.closest(".assistant-view-button");
+    if (!viewButton || !viewButton.dataset.viewUrl) {
+      return;
+    }
+    viewButton.disabled = true;
+    viewButton.textContent = "Registrando...";
+    try {
+      const response = await fetch(viewButton.dataset.viewUrl, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "X-CSRFToken": getCookie("csrftoken"),
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      });
+      if (response.ok) {
+        await refreshAssistant();
+        return;
+      }
+    } catch (error) {
+      // O operador pode tentar novamente; nenhuma ação no pedido foi executada.
+    }
+    viewButton.disabled = false;
+    viewButton.textContent = "Marcar como visto";
+  });
 
   if (container && refreshUrl) {
     window.setInterval(refreshAssistant, Math.max(10, refreshSeconds) * 1000);
