@@ -1,6 +1,11 @@
 from django.urls import path
 
-from .assistant_views import OperationalDashboardView
+from .active_order_views import ActiveOrderCreateView
+from .assistant_views import (
+    OperationalAssistantUpdatesView,
+    OperationalDashboardView,
+    RecommendationViewedView,
+)
 from .closing_views import (
     ClosingCsvExportView,
     ClosingDetailView,
@@ -16,7 +21,6 @@ from .views import (
     CompanyListView,
     CompanyToggleActiveView,
     CompanyUpdateView,
-    OrderCreateView,
     OrderDetailView,
     OrderListView,
     OrderStatusUpdateView,
@@ -29,6 +33,16 @@ from .views import (
 
 urlpatterns = [
     path("", OperationalDashboardView.as_view(), name="dashboard"),
+    path(
+        "assistente-operacional/atualizacoes/",
+        OperationalAssistantUpdatesView.as_view(),
+        name="assistant-updates",
+    ),
+    path(
+        "assistente-operacional/recomendacoes/<uuid:pk>/visualizar/",
+        RecommendationViewedView.as_view(),
+        name="assistant-recommendation-viewed",
+    ),
     path("empresas/", CompanyListView.as_view(), name="company-list"),
     path("empresas/nova/", CompanyCreateView.as_view(), name="company-create"),
     path("empresas/<uuid:pk>/editar/", CompanyUpdateView.as_view(), name="company-update"),
@@ -46,7 +60,7 @@ urlpatterns = [
         name="product-toggle-active",
     ),
     path("pedidos/", OrderListView.as_view(), name="order-list"),
-    path("pedidos/novo/", OrderCreateView.as_view(), name="order-create"),
+    path("pedidos/novo/", ActiveOrderCreateView.as_view(), name="order-create"),
     path("pedidos/<uuid:pk>/", OrderDetailView.as_view(), name="order-detail"),
     path("pedidos/<uuid:pk>/editar/", OrderUpdateView.as_view(), name="order-update"),
     path(
