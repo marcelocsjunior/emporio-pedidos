@@ -8,9 +8,10 @@ from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-from intelligence.active_assistant import notify_order_created
 from intelligence.models import AIRecommendation
 from orders.models import AuditEvent, Company, Order, OrderItem, Product
+
+from intelligence.active_assistant import notify_order_created
 
 
 @override_settings(
