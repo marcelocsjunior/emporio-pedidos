@@ -1,0 +1,19 @@
+.assistant-request-alert-badge {
+  border-color: #8a6417;
+  background: #fff3cf;
+  color: #5f430c;
+}
+
+.assistant-request-live-alert {
+  top: 1rem;
+  bottom: auto;
+  border-color: #8a6417;
+  border-left-color: #8a6417;
+}
+
+@media (max-width: 720px) {
+  .assistant-request-live-alert {
+    top: 0.75rem;
+    bottom: auto;
+  }
+}
