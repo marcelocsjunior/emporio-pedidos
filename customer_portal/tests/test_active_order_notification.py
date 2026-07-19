@@ -3,11 +3,6 @@ from decimal import Decimal
 
 from accounts.models import User
 from accounts.roles import ROLE_ATTENDANCE, ensure_roles
-from customer_portal.models import (
-    CustomerDeliveryLocation,
-    CustomerOrderRequest,
-    CustomerOrderRequestItem,
-)
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -15,6 +10,11 @@ from django.utils import timezone
 from intelligence.models import AIEvent, AIRecommendation
 from orders.models import Company, Product
 
+from customer_portal.models import (
+    CustomerDeliveryLocation,
+    CustomerOrderRequest,
+    CustomerOrderRequestItem,
+)
 from intelligence.active_assistant import CATEGORY_NEW_ORDER, EVENT_TYPE_ORDER_CREATED
 
 
