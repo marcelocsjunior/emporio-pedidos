@@ -2,16 +2,14 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
+from accounts.models import User
+from accounts.roles import ROLE_ATTENDANCE, ensure_roles
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-
-from accounts.models import User
-from accounts.roles import ROLE_ATTENDANCE, ensure_roles
 from intelligence.active_assistant import notify_order_created
 from intelligence.models import AIRecommendation
-
 from orders.models import AuditEvent, Company, Order, OrderItem, Product
 
 
