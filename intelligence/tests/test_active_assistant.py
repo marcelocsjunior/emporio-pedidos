@@ -1,6 +1,7 @@
 import json
 from datetime import timedelta
 from decimal import Decimal
+from io import StringIO
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
@@ -13,6 +14,7 @@ from intelligence.active_assistant import (
     notify_order_created,
     process_active_order_events,
 )
+from intelligence.management.commands.run_ai_worker import Command
 from intelligence.models import AIEvent, AIRecommendation
 from intelligence.providers import ProviderPermanentError
 from orders.models import Company, Order, OrderItem, Product
@@ -119,3 +121,20 @@ class ActiveAssistantCoreTests(TestCase):
         self.assertEqual(recommendation.evidence["analysis_status"], "failed")
         self.assertIn("temporariamente indisponível", recommendation.summary)
         self.assertEqual(event.status, AIEvent.Status.FAILED)
+
+    @override_settings(AI_ACTIVE_ASSISTANT_ENABLED=False)
+    def test_worker_flag_off_skips_active_processing(self):
+        command = Command()
+        command.stdout = StringIO()
+        module = "intelligence.management.commands.run_ai_worker"
+
+        with (
+            patch(f"{module}.recover_stale_events", return_value=0),
+            patch(f"{module}.enqueue_due_events", return_value={}),
+            patch(f"{module}.process_active_order_events") as active_processing,
+            patch(f"{module}.process_available_events", return_value=0),
+            patch(f"{module}.expire_stale_recommendations", return_value=0),
+        ):
+            command.handle(once=True, limit=20, interval=900)
+
+        active_processing.assert_not_called()
