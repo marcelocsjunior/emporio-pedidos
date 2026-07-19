@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .active_review_views import ActiveRequestApproveView
 from .portal_views import (
     PortalRequestCancelView,
     PortalRequestCreateView,
@@ -9,7 +10,6 @@ from .portal_views import (
     PortalRequestUpdateView,
 )
 from .review_views import (
-    RequestApproveView,
     RequestCorrectionView,
     RequestQueueView,
     RequestRejectView,
@@ -45,7 +45,7 @@ urlpatterns = [
     ),
     path(
         "solicitacoes/<uuid:pk>/aprovar/",
-        RequestApproveView.as_view(),
+        ActiveRequestApproveView.as_view(),
         name="request-approve",
     ),
 ]
