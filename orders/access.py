@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from accounts.access import Capability, user_has_capability
+from accounts.access import Capability, is_root_system_admin, user_has_capability
 from accounts.roles import (
     ROLE_ADMIN,
     ROLE_ATTENDANCE,
     ROLE_EXPEDITION,
     ROLE_PRODUCTION,
+    ROLE_SYSTEM_ADMIN,
 )
 
 from .models import Order
@@ -29,7 +30,7 @@ def allowed_statuses_for_user(user, order: Order) -> set[str]:
     if not user_has_capability(user, Capability.CHANGE_ORDER_STATUS):
         return set()
     roles = set(user.groups.values_list("name", flat=True))
-    if user.is_superuser or ROLE_ADMIN in roles:
+    if is_root_system_admin(user) or ROLE_ADMIN in roles or ROLE_SYSTEM_ADMIN in roles:
         from .services import ALLOWED_TRANSITIONS
 
         return set(ALLOWED_TRANSITIONS[order.status])

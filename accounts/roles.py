@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group, Permission
 from django.db import transaction
 
 ROLE_ADMIN = "Administrador"
+ROLE_SYSTEM_ADMIN = "Administrador do Sistema"
 ROLE_ATTENDANCE = "Atendimento"
 ROLE_PRODUCTION = "Produção"
 ROLE_EXPEDITION = "Expedição"
@@ -13,6 +14,7 @@ ROLE_FINANCE = "Financeiro"
 ROLE_SUPPORT = "Desenvolvimento / Suporte"
 
 ROLE_NAMES = (
+    ROLE_SYSTEM_ADMIN,
     ROLE_ADMIN,
     ROLE_ATTENDANCE,
     ROLE_PRODUCTION,
@@ -127,6 +129,14 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
         ("intelligence", "view_ai_finance"),
     },
     ROLE_SUPPORT: set(),
+}
+
+# O Administrador do Sistema recebe as permissões funcionais do perfil mais amplo,
+# além da área técnica. A autorização para gerir perfis continua na camada de
+# capacidades, não nas permissões genéricas do Django.
+ROLE_PERMISSION_MAP[ROLE_SYSTEM_ADMIN] = {
+    *(spec for spec in ROLE_PERMISSION_MAP[ROLE_ADMIN] if not spec[1].startswith("delete_")),
+    *_model_permissions("accounts", "user", ("add", "change", "view")),
 }
 
 
