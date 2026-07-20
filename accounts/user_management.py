@@ -5,7 +5,7 @@ from django.db import transaction
 
 from orders.services import record_audit
 
-from .access import Capability, ROOT_USERNAME, is_root_system_admin, user_has_capability
+from .access import ROOT_USERNAME, Capability, is_root_system_admin, user_has_capability
 from .roles import (
     ROLE_ADMIN,
     ROLE_ATTENDANCE,

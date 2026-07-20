@@ -2,9 +2,8 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from orders.services import record_audit
-
 from accounts.access import ROOT_USERNAME
+from orders.services import record_audit
 
 
 class Command(BaseCommand):
