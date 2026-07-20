@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Usuários e acessos · Empório{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><div class="eyebrow">Configurações</div><h1>Usuários e acessos</h1><p>Contas internas, perfis e situação de acesso. Suspender preserva todo o histórico.</p></div>
+  {% if can_create_users %}<a class="button primary" href="{% url 'user-access-create' %}">Criar usuário</a>{% endif %}
+</div>
+<div class="panel"><table><thead><tr><th>Identificação</th><th>Usuário</th><th>Perfil</th><th>Estado</th><th>Ações</th></tr></thead><tbody>
+{% for managed_user in managed_users %}
+<tr>
+  <td>{{ managed_user }}{% if managed_user.is_protected_root %} <span class="role-badge">Conta protegida</span>{% endif %}</td>
+  <td>{{ managed_user.username }}</td><td>{{ managed_user.visible_role }}</td>
+  <td>{% if managed_user.is_active %}Ativo{% else %}Acesso suspenso{% endif %}{% if managed_user.must_change_password %}<br><small>Troca de senha pendente</small>{% endif %}</td>
+  <td>{% if managed_user.can_be_managed %}<div class="row-actions"><a class="button compact" href="{% url 'user-access-update' managed_user.pk %}">Editar</a>{% if not managed_user.is_protected_root %}<form method="post" action="{% url 'user-access-toggle-active' managed_user.pk %}">{% csrf_token %}<button class="button compact" type="submit">{% if managed_user.is_active %}Suspender{% else %}Reativar{% endif %}</button></form><form method="post" action="{% url 'user-access-require-password-change' managed_user.pk %}">{% csrf_token %}<button class="button compact" type="submit">Exigir troca de senha</button></form>{% endif %}</div>{% else %}<span class="muted">Somente consulta</span>{% endif %}</td>
+</tr>
+{% empty %}<tr><td colspan="5">Nenhum usuário interno cadastrado.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

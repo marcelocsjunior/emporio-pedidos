@@ -11,6 +11,11 @@ from .views import (
     EmporioPasswordChangeDoneView,
     EmporioPasswordChangeView,
     TechnicalAreaView,
+    UserAccessCreateView,
+    UserAccessListView,
+    UserAccessRequirePasswordChangeView,
+    UserAccessToggleActiveView,
+    UserAccessUpdateView,
 )
 
 urlpatterns = [
@@ -21,6 +26,31 @@ urlpatterns = [
         "alterar-senha/concluido/",
         EmporioPasswordChangeDoneView.as_view(),
         name="password_change_done",
+    ),
+    path(
+        "configuracoes/usuarios/",
+        UserAccessListView.as_view(),
+        name="user-access-list",
+    ),
+    path(
+        "configuracoes/usuarios/novo/",
+        UserAccessCreateView.as_view(),
+        name="user-access-create",
+    ),
+    path(
+        "configuracoes/usuarios/<int:pk>/editar/",
+        UserAccessUpdateView.as_view(),
+        name="user-access-update",
+    ),
+    path(
+        "configuracoes/usuarios/<int:pk>/situacao/",
+        UserAccessToggleActiveView.as_view(),
+        name="user-access-toggle-active",
+    ),
+    path(
+        "configuracoes/usuarios/<int:pk>/troca-senha/",
+        UserAccessRequirePasswordChangeView.as_view(),
+        name="user-access-require-password-change",
     ),
     path(
         "configuracoes/usuarios/atendentes/",

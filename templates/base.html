@@ -29,7 +29,7 @@
           {% if perms.orders.view_monthlyclosing %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
           {% if perms.intelligence.view_airecommendation %}<a href="{% url 'intelligence:central' %}">Central Inteligente</a>{% endif %}
           {% if perms.orders.view_auditevent %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
-          {% if can_manage_attendants %}<a href="{% url 'attendant-list' %}">Configurações</a>{% endif %}
+          {% if can_manage_users or can_manage_attendants %}<a href="{% url 'user-access-list' %}">Configurações</a>{% endif %}
           {% if can_access_technical_area %}<a href="{% url 'technical-area' %}">Área técnica</a>{% endif %}
         </nav>
 
@@ -56,7 +56,7 @@
               {% if perms.orders.view_monthlyclosing %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
               {% if perms.intelligence.view_airecommendation %}<a href="{% url 'intelligence:central' %}">Central Inteligente</a>{% endif %}
               {% if perms.orders.view_auditevent %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
-              {% if can_manage_attendants %}<a href="{% url 'attendant-list' %}">Configurações</a>{% endif %}
+              {% if can_manage_users or can_manage_attendants %}<a href="{% url 'user-access-list' %}">Configurações</a>{% endif %}
               {% if can_access_technical_area %}<a href="{% url 'technical-area' %}">Área técnica</a>{% endif %}
               <a href="{% url 'password_change' %}">Alterar senha</a>
               <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="mobile-logout">Sair</button></form>
