@@ -49,6 +49,15 @@ class InternalAccessMVPTests(TestCase):
             username="finance-test", password="safe-test-1"
         )
         cls.finance.groups.add(roles[ROLE_FINANCE])
+        cls.legacy_reviewer = User.objects.create_user(
+            username="legacy-reviewer-test", password="safe-test-1"
+        )
+        cls.legacy_reviewer.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="customer_portal",
+                codename="review_customerorderrequest",
+            )
+        )
 
     def test_bootstrap_is_idempotent_and_preserves_legacy_groups(self):
         existing_users = set(User.objects.values_list("pk", flat=True))
@@ -109,6 +118,12 @@ class InternalAccessMVPTests(TestCase):
         )
         self.assertTrue(user_has_capability(self.finance, Capability.VIEW_REPORTS))
         self.assertTrue(user_has_capability(self.finance, Capability.VIEW_AUDIT))
+        self.assertTrue(
+            user_has_capability(self.legacy_reviewer, Capability.VIEW_ORDERS)
+        )
+        self.assertFalse(
+            user_has_capability(self.legacy_reviewer, Capability.EDIT_ORDERS)
+        )
 
     def test_director_creates_only_safe_attendant(self):
         self.client.force_login(self.director)

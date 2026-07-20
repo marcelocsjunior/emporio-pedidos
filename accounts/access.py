@@ -79,6 +79,15 @@ ROLE_CAPABILITIES = {
     ROLE_SUPPORT: frozenset({Capability.ACCESS_TECHNICAL_AREA}),
 }
 
+COMPATIBILITY_PERMISSIONS = {
+    Capability.VIEW_ORDERS: frozenset(
+        {
+            "orders.view_order",
+            "customer_portal.review_customerorderrequest",
+        }
+    ),
+}
+
 
 def user_has_capability(user, capability: Capability) -> bool:
     if not user.is_authenticated or not user.is_active:
@@ -86,7 +95,10 @@ def user_has_capability(user, capability: Capability) -> bool:
     if user.is_superuser:
         return capability in DIRECTOR_CAPABILITIES
     role_names = user.groups.values_list("name", flat=True)
-    return any(capability in ROLE_CAPABILITIES.get(role, ()) for role in role_names)
+    if any(capability in ROLE_CAPABILITIES.get(role, ()) for role in role_names):
+        return True
+    permissions = COMPATIBILITY_PERMISSIONS.get(capability, ())
+    return any(user.has_perm(permission) for permission in permissions)
 
 
 class CapabilityRequiredMixin(LoginRequiredMixin):
