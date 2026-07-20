@@ -17,7 +17,6 @@ from accounts.roles import (
 from customer_portal.models import CustomerPortalAccess
 from orders.models import AuditEvent
 
-
 User = get_user_model()
 
 

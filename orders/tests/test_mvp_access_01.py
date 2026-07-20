@@ -11,7 +11,6 @@ from accounts.roles import ROLE_ADMIN, ROLE_ATTENDANCE, ensure_roles
 from orders.models import AuditEvent, Company, Order, OrderItem, Product
 from orders.services import change_order_status
 
-
 User = get_user_model()
 
 
