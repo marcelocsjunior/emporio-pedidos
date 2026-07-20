@@ -229,9 +229,10 @@ class CustomerOrderStatusNotificationTests(TestCase):
         self.assertContains(response, 'data-new-status="Recebido"')
 
     def test_portal_alert_javascript_exposes_local_deduplication_contract(self):
-        script = (Path(__file__).parents[2] / "static/js/customer_order_notifications.js").read_text(
-            encoding="utf-8"
+        script_path = (
+            Path(__file__).parents[2] / "static/js/customer_order_notifications.js"
         )
+        script = script_path.read_text(encoding="utf-8")
 
         self.assertIn("emporioCustomerOrderNotificationsSoundEnabled", script)
         self.assertIn("emporioCustomerOrderNotificationsAnnounced", script)
