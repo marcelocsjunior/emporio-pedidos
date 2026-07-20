@@ -1,3 +1,115 @@
+.portal-order-updates {
+  margin: 0 0 20px;
+  padding: 16px;
+  border: 1px solid #c8ddcf;
+  border-radius: 14px;
+  background: #f5fbf7;
+}
+
+.portal-order-updates-header,
+.portal-order-update-title,
+.portal-order-update-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.portal-order-updates-header h2 {
+  margin: 2px 0 0;
+  font-size: 20px;
+}
+
+.portal-order-updates-badge {
+  display: inline-grid;
+  min-width: 30px;
+  min-height: 30px;
+  place-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #0e3829;
+  color: #fff;
+  font-weight: 800;
+}
+
+.portal-order-update-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.portal-order-update-card {
+  padding: 14px;
+  border: 1px solid #d8e6dc;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.portal-order-update-title time,
+.portal-order-updates-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.portal-order-status-change {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.portal-order-status-change > div {
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: #f3f6f4;
+}
+
+.portal-order-status-change dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.portal-order-status-change dd {
+  margin: 3px 0 0;
+  font-weight: 750;
+}
+
+.portal-order-update-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.portal-order-update-actions form {
+  margin: 0;
+}
+
+.portal-order-updates-empty {
+  margin: 12px 0 0;
+}
+
+@media (max-width: 600px) {
+  .portal-order-updates {
+    padding: 12px;
+  }
+
+  .portal-order-update-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .portal-order-status-change {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .portal-order-update-actions,
+  .portal-order-update-actions form,
+  .portal-order-update-actions .button {
+    width: 100%;
+  }
+}
+
 .portal-request-table {
   min-width: 760px;
 }

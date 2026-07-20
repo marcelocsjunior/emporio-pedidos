@@ -1,0 +1,39 @@
+{% if order_notification_panel %}
+<section class="portal-order-updates" aria-labelledby="portal-order-updates-title" aria-live="polite" data-unseen-count="{{ order_notification_panel.unseen_count }}">
+  <header class="portal-order-updates-header">
+    <div>
+      <span class="eyebrow">Atualizações de pedidos</span>
+      <h2 id="portal-order-updates-title">Alterações não vistas</h2>
+    </div>
+    {% if order_notification_panel.unseen_count %}
+      <span class="portal-order-updates-badge" aria-label="{{ order_notification_panel.unseen_count }} atualizações não vistas">{{ order_notification_panel.unseen_count }}</span>
+    {% endif %}
+  </header>
+  {% if order_notification_panel.notifications %}
+    <div class="portal-order-update-list">
+      {% for notification in order_notification_panel.notifications %}
+        <article class="portal-order-update-card" data-order-notification-id="{{ notification.id }}">
+          <div class="portal-order-update-title">
+            <strong>Pedido {{ notification.order_number }} atualizado</strong>
+            <time datetime="{{ notification.changed_at|date:'c' }}">{{ notification.changed_at|date:"d/m/Y H:i" }}</time>
+          </div>
+          <dl class="portal-order-status-change">
+            <div><dt>Estado anterior</dt><dd>{{ notification.previous_status }}</dd></div>
+            <div><dt>Novo estado</dt><dd>{{ notification.new_status }}</dd></div>
+          </dl>
+          <p>{{ notification.message }}</p>
+          <div class="portal-order-update-actions">
+            <a class="button compact ghost" href="{{ notification.order_url }}">Abrir pedido</a>
+            <form method="post" action="{{ notification.viewed_url }}">
+              {% csrf_token %}
+              <button class="button compact secondary" type="submit">Marcar como visto</button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="portal-order-updates-empty">Nenhuma atualização de pedido pendente.</p>
+  {% endif %}
+</section>
+{% endif %}
