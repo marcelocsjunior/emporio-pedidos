@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
@@ -218,3 +219,24 @@ class CustomerOrderStatusNotificationTests(TestCase):
         self.assertContains(response, "Estado anterior")
         self.assertContains(response, "Novo estado")
         self.assertContains(response, "customer_order_notifications.js")
+        self.assertContains(response, "portal-order-sound-toggle")
+        self.assertContains(response, 'aria-pressed="false"')
+        self.assertContains(
+            response,
+            f'data-order-notification-id="{self.notification().pk}"',
+        )
+        self.assertContains(response, f'data-order-number="{self.order.number}"')
+        self.assertContains(response, 'data-new-status="Recebido"')
+
+    def test_portal_alert_javascript_exposes_local_deduplication_contract(self):
+        script = (Path(__file__).parents[2] / "static/js/customer_order_notifications.js").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("emporioCustomerOrderNotificationsSoundEnabled", script)
+        self.assertIn("emporioCustomerOrderNotificationsAnnounced", script)
+        self.assertIn("window.AudioContext || window.webkitAudioContext", script)
+        self.assertIn("const unannounced = notifications.filter", script)
+        self.assertIn('method: "POST"', script)
+        self.assertIn('"X-CSRFToken": getCookie("csrftoken")', script)
+        self.assertIn("portal-order-live-alert", script)
