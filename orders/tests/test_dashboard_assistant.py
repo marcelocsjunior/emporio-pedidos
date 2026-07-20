@@ -107,14 +107,11 @@ class DashboardAssistantTests(TestCase):
         self.assertContains(response, "Pedidos por status")
 
     @override_settings(AI_ASSISTANT_PANEL_ENABLED=True)
-    def test_user_without_permissions_does_not_receive_operational_data(self):
+    def test_user_without_permissions_cannot_access_operational_dashboard(self):
         self.client.force_login(self.unprivileged)
         response = self.client.get(reverse("dashboard"))
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Assistente Operacional")
-        self.assertNotContains(response, self.customer_request.protocol)
-        self.assertNotContains(response, self.order.number)
+        self.assertEqual(response.status_code, 403)
 
     @override_settings(AI_ASSISTANT_PANEL_ENABLED=True)
     @patch("intelligence.operational_assistant.timezone.now")
