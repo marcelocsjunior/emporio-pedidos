@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Atendentes · Empório{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Configurações · Usuários e acessos</div><h1>Atendentes</h1><p>Contas individuais da operação. Suspender preserva todo o histórico.</p></div><a class="button primary" href="{% url 'attendant-create' %}">Criar Atendente</a></div>
+<div class="panel"><table><thead><tr><th>Identificação</th><th>Usuário</th><th>Estado</th><th>Ações</th></tr></thead><tbody>
+{% for attendant in attendants %}<tr><td>{{ attendant }}</td><td>{{ attendant.username }}</td><td>{% if attendant.is_active %}Ativo{% else %}Acesso suspenso{% endif %}</td><td><div class="row-actions"><a class="button compact" href="{% url 'attendant-update' attendant.pk %}">Editar</a><form method="post" action="{% url 'attendant-toggle-active' attendant.pk %}">{% csrf_token %}<button class="button compact" type="submit">{% if attendant.is_active %}Suspender{% else %}Reativar{% endif %}</button></form><form method="post" action="{% url 'attendant-require-password-change' attendant.pk %}">{% csrf_token %}<button class="button compact" type="submit">Exigir troca de senha</button></form></div></td></tr>{% empty %}<tr><td colspan="4">Nenhum Atendente cadastrado.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

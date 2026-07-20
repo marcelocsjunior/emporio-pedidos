@@ -15,6 +15,8 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 
+from accounts.access import Capability, CapabilityRequiredMixin, user_has_capability
+
 from .access import allowed_statuses_for_user
 from .forms import CompanyForm, OrderCreateForm, OrderForm, OrderItemFormSet, ProductForm
 from .models import AuditEvent, Company, MonthlyClosing, Order, Product
@@ -31,7 +33,8 @@ class SecurePermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
     raise_exception = True
 
 
-class DashboardView(LoginRequiredMixin, TemplateView):
+class DashboardView(CapabilityRequiredMixin, TemplateView):
+    capability_required = Capability.VIEW_ORDERS
     template_name = "orders/dashboard.html"
 
     def get_context_data(self, **kwargs):
@@ -327,6 +330,13 @@ class OrderCreateView(SecurePermissionMixin, View):
     template_name = "orders/order_form.html"
     session_key = "emporio_order_creation_key"
 
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and not user_has_capability(
+            request.user, Capability.CREATE_ORDERS
+        ):
+            raise PermissionDenied("Seu perfil não permite criar pedidos.")
+        return super().dispatch(request, *args, **kwargs)
+
     def get(self, request: HttpRequest) -> HttpResponse:
         creation_key = uuid.uuid4().hex
         request.session[self.session_key] = creation_key
@@ -389,6 +399,13 @@ class OrderCreateView(SecurePermissionMixin, View):
 class OrderUpdateView(SecurePermissionMixin, View):
     permission_required = "orders.change_order"
     template_name = "orders/order_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and not user_has_capability(
+            request.user, Capability.EDIT_ORDERS
+        ):
+            raise PermissionDenied("Seu perfil não permite editar pedidos.")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_object(self, pk) -> Order:
         return get_object_or_404(Order.objects.select_related("company"), pk=pk)
@@ -472,8 +489,8 @@ class OrderDetailView(SecurePermissionMixin, DetailView):
         context["allowed_statuses"] = [
             (value, label) for value, label in Order.Status.choices if value in allowed
         ]
-        context["can_edit"] = self.request.user.has_perm(
-            "orders.change_order"
+        context["can_edit"] = user_has_capability(
+            self.request.user, Capability.EDIT_ORDERS
         ) and self.object.status in ORDER_EDITABLE_STATUSES
         return context
 
@@ -489,6 +506,9 @@ class OrderStatusUpdateView(LoginRequiredMixin, View):
             raise PermissionDenied("Seu perfil não permite esta transição de status.")
 
         reason = request.POST.get("reason", "").strip()[:255]
+        if new_status == Order.Status.CANCELLED and not reason:
+            messages.error(request, "Informe o motivo do cancelamento.")
+            return redirect(reverse("order-detail", kwargs={"pk": order.pk}))
         idempotency_key = f"gui:{order.pk}:{order.status}:{new_status}"
         try:
             change_order_status(

@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import User
-from accounts.roles import ROLE_NAMES, ensure_roles
+from accounts.roles import ROLE_NAMES, ROLE_SUPPORT, ensure_roles
 
 
 class RolesAndAuthenticationTests(TestCase):
@@ -17,7 +17,10 @@ class RolesAndAuthenticationTests(TestCase):
             first_counts,
             {name: group.permissions.count() for name, group in second.items()},
         )
-        self.assertTrue(all(count > 0 for count in first_counts.values()))
+        self.assertEqual(first_counts[ROLE_SUPPORT], 0)
+        self.assertTrue(
+            all(count > 0 for role, count in first_counts.items() if role != ROLE_SUPPORT)
+        )
 
     def test_anonymous_user_is_redirected_to_login(self):
         response = self.client.get(reverse("dashboard"))

@@ -12,7 +12,7 @@
 
 {% if allowed_statuses %}
 <section class="panel action-panel"><div><div class="eyebrow">Próxima etapa</div><h2>Atualizar status</h2><p>Pedidos sem itens ou com valor zerado não avançam.</p></div><div class="action-buttons">
-{% for value,label in allowed_statuses %}<form method="post" action="{% url 'order-status-update' order.pk %}">{% csrf_token %}<input type="hidden" name="new_status" value="{{ value }}"><button class="button {% if value == 'cancelled' %}danger{% else %}primary{% endif %}" type="submit">{{ label }}</button></form>{% endfor %}
+{% for value,label in allowed_statuses %}<form method="post" action="{% url 'order-status-update' order.pk %}">{% csrf_token %}<input type="hidden" name="new_status" value="{{ value }}">{% if value == 'cancelled' %}<label for="cancel-reason-{{ order.pk }}">Motivo do cancelamento</label><input class="form-control" id="cancel-reason-{{ order.pk }}" name="reason" maxlength="255" required>{% endif %}<button class="button {% if value == 'cancelled' %}danger{% else %}primary{% endif %}" type="submit">{{ label }}</button></form>{% endfor %}
 </div></section>
 {% endif %}
 
