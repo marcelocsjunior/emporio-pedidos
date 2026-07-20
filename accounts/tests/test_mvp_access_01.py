@@ -4,7 +4,16 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.access import Capability, user_has_capability
-from accounts.roles import ROLE_ADMIN, ROLE_ATTENDANCE, ROLE_NAMES, ROLE_SUPPORT, ensure_roles
+from accounts.roles import (
+    ROLE_ADMIN,
+    ROLE_ATTENDANCE,
+    ROLE_EXPEDITION,
+    ROLE_FINANCE,
+    ROLE_NAMES,
+    ROLE_PRODUCTION,
+    ROLE_SUPPORT,
+    ensure_roles,
+)
 from customer_portal.models import CustomerPortalAccess
 from orders.models import AuditEvent
 
@@ -28,6 +37,18 @@ class InternalAccessMVPTests(TestCase):
             username="support-test", password="safe-test-1"
         )
         cls.support.groups.add(roles[ROLE_SUPPORT])
+        cls.production = User.objects.create_user(
+            username="production-test", password="safe-test-1"
+        )
+        cls.production.groups.add(roles[ROLE_PRODUCTION])
+        cls.expedition = User.objects.create_user(
+            username="expedition-test", password="safe-test-1"
+        )
+        cls.expedition.groups.add(roles[ROLE_EXPEDITION])
+        cls.finance = User.objects.create_user(
+            username="finance-test", password="safe-test-1"
+        )
+        cls.finance.groups.add(roles[ROLE_FINANCE])
 
     def test_bootstrap_is_idempotent_and_preserves_legacy_groups(self):
         existing_users = set(User.objects.values_list("pk", flat=True))
@@ -78,6 +99,16 @@ class InternalAccessMVPTests(TestCase):
         self.assertFalse(user_has_capability(self.attendant, Capability.MANAGE_ATTENDANTS))
         self.assertTrue(user_has_capability(self.support, Capability.ACCESS_TECHNICAL_AREA))
         self.assertFalse(user_has_capability(self.support, Capability.VIEW_ORDERS))
+        self.assertTrue(user_has_capability(self.production, Capability.VIEW_ORDERS))
+        self.assertTrue(
+            user_has_capability(self.production, Capability.CHANGE_ORDER_STATUS)
+        )
+        self.assertTrue(user_has_capability(self.expedition, Capability.VIEW_ORDERS))
+        self.assertTrue(
+            user_has_capability(self.expedition, Capability.CHANGE_ORDER_STATUS)
+        )
+        self.assertTrue(user_has_capability(self.finance, Capability.VIEW_REPORTS))
+        self.assertTrue(user_has_capability(self.finance, Capability.VIEW_AUDIT))
 
     def test_director_creates_only_safe_attendant(self):
         self.client.force_login(self.director)

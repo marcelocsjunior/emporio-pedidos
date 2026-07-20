@@ -5,7 +5,14 @@ from enum import StrEnum
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 
-from .roles import ROLE_ADMIN, ROLE_ATTENDANCE, ROLE_SUPPORT
+from .roles import (
+    ROLE_ADMIN,
+    ROLE_ATTENDANCE,
+    ROLE_EXPEDITION,
+    ROLE_FINANCE,
+    ROLE_PRODUCTION,
+    ROLE_SUPPORT,
+)
 
 
 class Capability(StrEnum):
@@ -56,6 +63,19 @@ ATTENDANT_CAPABILITIES = frozenset(
 ROLE_CAPABILITIES = {
     ROLE_ADMIN: DIRECTOR_CAPABILITIES,
     ROLE_ATTENDANCE: ATTENDANT_CAPABILITIES,
+    ROLE_PRODUCTION: frozenset(
+        {Capability.VIEW_ORDERS, Capability.CHANGE_ORDER_STATUS}
+    ),
+    ROLE_EXPEDITION: frozenset(
+        {Capability.VIEW_ORDERS, Capability.CHANGE_ORDER_STATUS}
+    ),
+    ROLE_FINANCE: frozenset(
+        {
+            Capability.VIEW_ORDERS,
+            Capability.VIEW_REPORTS,
+            Capability.VIEW_AUDIT,
+        }
+    ),
     ROLE_SUPPORT: frozenset({Capability.ACCESS_TECHNICAL_AREA}),
 }
 
