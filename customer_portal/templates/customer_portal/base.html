@@ -1,4 +1,4 @@
-{% load static %}
+{% load static portal_notifications %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -46,8 +46,16 @@
         {% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}
       </div>
     {% endif %}
+    <div
+      id="portal-order-notifications"
+      data-refresh-url="{% url 'customer_portal:order-notification-updates' %}"
+      data-refresh-seconds="15"
+    >
+      {% portal_order_notifications user %}
+    </div>
     {% block content %}{% endblock %}
   </main>
+  <script src="{% static 'js/customer_order_notifications.js' %}" defer></script>
   {% block extra_scripts %}{% endblock %}
 </body>
 </html>

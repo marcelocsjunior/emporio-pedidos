@@ -183,7 +183,7 @@ def change_order_status(
         order.cancelled_at = now
     order.save(update_fields=("status", "updated_by", "delivered_at", "cancelled_at", "updated_at"))
 
-    OrderStatusHistory.objects.create(
+    status_history = OrderStatusHistory.objects.create(
         order=order,
         from_status=current_status,
         to_status=new_status,
@@ -197,6 +197,9 @@ def change_order_status(
         entity=order,
         payload={"from": current_status, "to": new_status, "reason": reason},
     )
+    from customer_portal.order_notifications import schedule_order_status_notification
+
+    schedule_order_status_notification(status_history.pk)
     return order
 
 

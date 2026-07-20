@@ -3,6 +3,9 @@ from django.urls import path
 from .active_review_views import ActiveRequestApproveView
 from .active_submit_views import ActivePortalRequestSubmitView
 from .portal_views import (
+    PortalOrderDetailView,
+    PortalOrderNotificationUpdatesView,
+    PortalOrderNotificationViewedView,
     PortalRequestCancelView,
     PortalRequestCreateView,
     PortalRequestDetailView,
@@ -21,6 +24,17 @@ app_name = "customer_portal"
 
 urlpatterns = [
     path("portal/", PortalRequestListView.as_view(), name="request-list"),
+    path("portal/pedidos/<uuid:pk>/", PortalOrderDetailView.as_view(), name="order-detail"),
+    path(
+        "portal/atualizacoes-pedidos/",
+        PortalOrderNotificationUpdatesView.as_view(),
+        name="order-notification-updates",
+    ),
+    path(
+        "portal/atualizacoes-pedidos/<uuid:pk>/visualizar/",
+        PortalOrderNotificationViewedView.as_view(),
+        name="order-notification-viewed",
+    ),
     path("portal/nova/", PortalRequestCreateView.as_view(), name="request-create"),
     path("portal/<uuid:pk>/", PortalRequestDetailView.as_view(), name="request-detail"),
     path("portal/<uuid:pk>/editar/", PortalRequestUpdateView.as_view(), name="request-update"),

@@ -4,15 +4,21 @@ import uuid
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.http import HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView
 
+from orders.models import Order
+
 from .forms import CustomerRequestForm, CustomerRequestItemFormSet
 from .mixins import CustomerPortalAccessMixin
 from .models import CustomerOrderRequest
+from .order_notifications import (
+    build_order_status_notification_panel,
+    mark_order_status_notification_viewed,
+)
 from .services import (
     CANCELLABLE_STATUSES,
     EDITABLE_STATUSES,
@@ -38,6 +44,48 @@ class PortalRequestListView(CustomerPortalAccessMixin, ListView):
             .select_related("delivery_location", "converted_order")
             .prefetch_related("items")
         )
+
+
+class PortalOrderDetailView(CustomerPortalAccessMixin, DetailView):
+    model = Order
+    template_name = "customer_portal/order_detail.html"
+    context_object_name = "order"
+
+    def get_queryset(self):
+        return (
+            Order.objects.filter(company=self.portal_access.company)
+            .select_related("company")
+            .prefetch_related("items")
+        )
+
+
+class PortalOrderNotificationUpdatesView(CustomerPortalAccessMixin, View):
+    http_method_names = ("get",)
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        panel = build_order_status_notification_panel(
+            request.user,
+            self.portal_access.company,
+        )
+        return render(
+            request,
+            "customer_portal/_order_notifications.html",
+            {"order_notification_panel": panel},
+        )
+
+
+class PortalOrderNotificationViewedView(CustomerPortalAccessMixin, View):
+    http_method_names = ("post",)
+
+    def post(self, request: HttpRequest, pk) -> HttpResponse:
+        found = mark_order_status_notification_viewed(
+            notification_id=pk,
+            user=request.user,
+            company=self.portal_access.company,
+        )
+        if not found:
+            raise Http404
+        return redirect("customer_portal:request-list")
 
 
 class PortalRequestCreateView(CustomerPortalAccessMixin, View):

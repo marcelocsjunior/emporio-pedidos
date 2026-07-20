@@ -1,0 +1,43 @@
+{% extends "customer_portal/base.html" %}
+{% block title %}Pedido {{ order.number }} — Empório{% endblock %}
+{% block content %}
+<div class="page-heading portal-detail-heading">
+  <div>
+    <div class="eyebrow">Pedido oficial</div>
+    <h1>{{ order.number }}</h1>
+    <p>Acompanhe os dados registrados para este pedido.</p>
+  </div>
+  <a class="button ghost portal-detail-back" href="{% url 'customer_portal:request-list' %}">Voltar</a>
+</div>
+
+<section class="panel portal-detail-panel">
+  <dl class="portal-detail-list">
+    <div><dt>Estado</dt><dd><span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span></dd></div>
+    <div><dt>Data do pedido</dt><dd>{{ order.order_date|date:"d/m/Y" }}</dd></div>
+    <div><dt>Entrega</dt><dd>{{ order.delivery_date|date:"d/m/Y" }}{% if order.delivery_time %} às {{ order.delivery_time|time:"H:i" }}{% endif %}</dd></div>
+    <div><dt>Local</dt><dd>{{ order.delivery_location|default:"Não informado" }}</dd></div>
+    <div><dt>Total</dt><dd>R$ {{ order.total_amount|floatformat:2 }}</dd></div>
+  </dl>
+</section>
+
+<section class="panel portal-detail-items-panel">
+  <h2>Itens do pedido</h2>
+  <div class="table-wrap portal-detail-items-wrap">
+    <table class="responsive-table portal-detail-items-table" aria-label="Itens do pedido {{ order.number }}">
+      <thead><tr><th>Item</th><th>Quantidade</th><th>Valor unitário</th><th>Total</th></tr></thead>
+      <tbody>
+        {% for item in order.items.all %}
+          <tr>
+            <td data-label="Item">{{ item.product_name }}</td>
+            <td data-label="Quantidade">{{ item.quantity }}</td>
+            <td data-label="Valor unitário">R$ {{ item.unit_price|floatformat:2 }}</td>
+            <td data-label="Total">R$ {{ item.line_total|floatformat:2 }}</td>
+          </tr>
+        {% empty %}
+          <tr class="empty-row"><td colspan="4">Nenhum item registrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
