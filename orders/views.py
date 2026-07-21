@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 import uuid
 from datetime import date
 
@@ -17,8 +19,25 @@ from django.views.generic import DetailView, ListView, TemplateView
 from accounts.access import Capability, CapabilityRequiredMixin, user_has_capability
 
 from .access import allowed_statuses_for_user
-from .forms import CompanyForm, OrderCreateForm, OrderForm, OrderItemFormSet, ProductForm
-from .models import AuditEvent, Company, MonthlyClosing, Order, Product
+from .company_imports import (
+    ImportFileError,
+    apply_preview,
+    execute_import,
+    file_digest,
+    parse_file,
+    rollback_batch,
+    safe_filename,
+)
+from .forms import (
+    CompanyForm,
+    CompanyImportMappingForm,
+    CompanyImportUploadForm,
+    OrderCreateForm,
+    OrderForm,
+    OrderItemFormSet,
+    ProductForm,
+)
+from .models import AuditEvent, Company, CompanyImportBatch, MonthlyClosing, Order, Product
 from .services import (
     ORDER_EDITABLE_STATUSES,
     change_order_status,
@@ -186,6 +205,180 @@ class CompanyToggleActiveView(SecurePermissionMixin, View):
             "Empresa ativada." if company.active else "Empresa inativada para novos pedidos.",
         )
         return redirect("company-list")
+
+
+class CompanyImportMixin(SecurePermissionMixin):
+    capability_required = Capability.MANAGE_COMPANIES
+
+    def get_batch(self, pk):
+        return get_object_or_404(CompanyImportBatch, pk=pk)
+
+    def _session_key(self, batch):
+        return f"company_import_{batch.pk}"
+
+    def _load(self, request, batch):
+        path = request.session.get(self._session_key(batch), "")
+        if not path or not path.startswith(tempfile.gettempdir() + os.sep):
+            raise ImportFileError("O arquivo temporário expirou; envie-o novamente.")
+        try:
+            content = open(path, "rb").read()
+        except OSError as exc:
+            raise ImportFileError("O arquivo temporário expirou; envie-o novamente.") from exc
+        if file_digest(content) != batch.file_hash:
+            raise ImportFileError("O arquivo temporário não corresponde ao lote.")
+        return content, parse_file(content, batch.original_filename)
+
+    def _remove(self, request, batch):
+        path = request.session.pop(self._session_key(batch), "")
+        if path:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+
+class CompanyImportUploadView(CompanyImportMixin, View):
+    template_name = "orders/company_import_upload.html"
+
+    def get(self, request):
+        return render(request, self.template_name, {"form": CompanyImportUploadForm()})
+
+    def post(self, request):
+        form = CompanyImportUploadForm(request.POST, request.FILES)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form})
+        upload = form.cleaned_data["file"]
+        content = upload.read()
+        try:
+            parsed = parse_file(content, upload.name)
+        except ImportFileError as exc:
+            form.add_error("file", str(exc))
+            return render(request, self.template_name, {"form": form})
+        digest = file_digest(content)
+        repeated = CompanyImportBatch.objects.filter(file_hash=digest).exists()
+        if repeated and not form.cleaned_data["allow_reupload"]:
+            form.add_error(
+                "allow_reupload",
+                "Este arquivo já foi enviado. Confirme explicitamente para criar novo lote.",
+            )
+            return render(request, self.template_name, {"form": form, "repeated": True})
+        batch = CompanyImportBatch.objects.create(
+            created_by=request.user,
+            original_filename=safe_filename(upload.name),
+            file_hash=digest,
+            file_format=parsed.file_format,
+            separator=parsed.separator,
+            encoding=parsed.encoding,
+        )
+        handle, path = tempfile.mkstemp(prefix="emporio-import-", suffix=f".{parsed.file_format}")
+        with os.fdopen(handle, "wb") as temporary:
+            temporary.write(content)
+        request.session[self._session_key(batch)] = path
+        record_audit(
+            actor=request.user,
+            action="company_import.created",
+            entity=batch,
+            payload={"format": parsed.file_format, "reupload": repeated},
+        )
+        return redirect("company-import-map", pk=batch.pk)
+
+
+class CompanyImportMappingView(CompanyImportMixin, View):
+    template_name = "orders/company_import_mapping.html"
+
+    def get(self, request, pk):
+        batch = self.get_batch(pk)
+        try:
+            _, parsed = self._load(request, batch)
+        except ImportFileError as exc:
+            messages.error(request, str(exc))
+            return redirect("company-import-upload")
+        return render(
+            request,
+            self.template_name,
+            {
+                "batch": batch,
+                "form": CompanyImportMappingForm(headers=parsed.headers),
+                "headers": parsed.headers,
+            },
+        )
+
+    def post(self, request, pk):
+        batch = self.get_batch(pk)
+        try:
+            _, parsed = self._load(request, batch)
+            form = CompanyImportMappingForm(request.POST, headers=parsed.headers)
+            if not form.is_valid():
+                return render(request, self.template_name, {"batch": batch, "form": form})
+            previews = apply_preview(batch, parsed, form.mapping(parsed.headers), request.user)
+        except ImportFileError as exc:
+            messages.error(request, str(exc))
+            return redirect("company-import-upload")
+        request.session[f"company_import_preview_{batch.pk}"] = [
+            {
+                "number": row.number,
+                "status": row.status,
+                "reason": row.reason,
+                "values": row.values,
+                "warning": row.warning,
+            }
+            for row in previews
+        ]
+        return redirect("company-import-preview", pk=batch.pk)
+
+
+class CompanyImportPreviewView(CompanyImportMixin, View):
+    template_name = "orders/company_import_preview.html"
+
+    def get(self, request, pk):
+        batch = self.get_batch(pk)
+        previews = request.session.get(f"company_import_preview_{batch.pk}", [])
+        return render(request, self.template_name, {"batch": batch, "previews": previews})
+
+    def post(self, request, pk):
+        batch = self.get_batch(pk)
+        if request.POST.get("confirm") != "yes":
+            messages.error(request, "Confirmação humana obrigatória.")
+            return redirect("company-import-preview", pk=pk)
+        try:
+            _, parsed = self._load(request, batch)
+            count = execute_import(batch, parsed, request.user)
+        except (ImportFileError, ValidationError) as exc:
+            messages.error(request, str(exc))
+            return redirect("company-import-detail", pk=pk)
+        finally:
+            self._remove(request, batch)
+        messages.success(request, f"{count} cliente(s) importado(s).")
+        return redirect("company-import-detail", pk=pk)
+
+
+class CompanyImportListView(CompanyImportMixin, ListView):
+    model = CompanyImportBatch
+    template_name = "orders/company_import_list.html"
+    context_object_name = "batches"
+    paginate_by = 30
+
+
+class CompanyImportDetailView(CompanyImportMixin, DetailView):
+    model = CompanyImportBatch
+    template_name = "orders/company_import_detail.html"
+    context_object_name = "batch"
+
+
+class CompanyImportRollbackView(CompanyImportMixin, View):
+    http_method_names = ("post",)
+
+    def post(self, request, pk):
+        batch = self.get_batch(pk)
+        if request.POST.get("confirm") != "yes":
+            messages.error(request, "Confirmação humana obrigatória.")
+            return redirect("company-import-detail", pk=pk)
+        try:
+            count = rollback_batch(batch, request.user)
+            messages.success(request, f"Rollback concluído para {count} cliente(s).")
+        except ImportFileError as exc:
+            messages.error(request, str(exc))
+        return redirect("company-import-detail", pk=pk)
 
 
 class ProductListView(SecurePermissionMixin, SearchableListMixin, ListView):

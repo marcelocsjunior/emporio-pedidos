@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Mapear campos — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Importação</div><h1>Mapear campos</h1><p>Associe os campos encontrados aos campos do cadastro. Somente o nome é obrigatório.</p></div></div>
+<section class="panel"><form method="post">{% csrf_token %}{{ form.as_p }}<button class="button primary" type="submit">Gerar pré-visualização</button></form></section>
+{% endblock %}

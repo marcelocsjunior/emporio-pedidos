@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Lotes de importação — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Clientes</div><h1>Lotes de importação</h1></div><a class="button primary" href="{% url 'company-import-upload' %}">Nova importação</a></div>
+<section class="panel"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Arquivo</th><th>Formato</th><th>Status</th><th>Importados</th><th></th></tr></thead><tbody>{% for batch in batches %}<tr><td>{{ batch.created_at|date:"d/m/Y H:i" }}</td><td>{{ batch.original_filename }}</td><td>{{ batch.get_file_format_display }}</td><td>{{ batch.get_status_display }}</td><td>{{ batch.imported_count }}</td><td><a class="button compact" href="{% url 'company-import-detail' batch.pk %}">Consultar</a></td></tr>{% empty %}<tr><td colspan="6">Nenhum lote.</td></tr>{% endfor %}</tbody></table></div></section>{% include "orders/pagination.html" %}
+{% endblock %}

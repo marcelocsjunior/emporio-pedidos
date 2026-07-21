@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Pré-visualização — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Importação</div><h1>Pré-visualização</h1><p>Confira a classificação. Esta etapa ainda não criou clientes.</p></div></div>
+<section class="panel"><p><strong>{{ batch.valid_count }}</strong> serão criados · {{ batch.invalid_count }} inválidos/incompletos · {{ batch.duplicate_count }} duplicados · {{ batch.ignored_count }} ignorados.</p><div class="table-wrap"><table><thead><tr><th>Registro</th><th>Nome</th><th>Classificação</th><th>Motivo/alerta</th></tr></thead><tbody>{% for row in previews %}<tr><td>{{ row.number }}</td><td>{{ row.values.name|default:"—" }}</td><td>{{ row.status }}</td><td>{{ row.reason|default:row.warning|default:"—" }}</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="panel"><form method="post">{% csrf_token %}<label><input type="checkbox" name="confirm" value="yes" required> Confirmo a criação de {{ batch.valid_count }} novo(s) cliente(s).</label><p><button class="button primary" type="submit" {% if not batch.valid_count %}disabled{% endif %}>Executar importação</button></p></form></section>
+{% endblock %}
