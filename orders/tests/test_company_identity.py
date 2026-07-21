@@ -130,3 +130,14 @@ def test_existing_company_defaults_to_legal_entity_without_document():
     assert company.entity_type == Company.EntityType.COMPANY
     assert company.document == ""
     assert company.customer_type == Company.CustomerType.SPOT
+
+
+def test_company_form_preserves_legacy_payload_default():
+    payload = company_payload(name="Cadastro Legado")
+    payload.pop("entity_type")
+
+    form = CompanyForm(data=payload)
+
+    assert form.is_valid(), form.errors
+    company = form.save()
+    assert company.entity_type == Company.EntityType.COMPANY
