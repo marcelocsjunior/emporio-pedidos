@@ -25,43 +25,75 @@
           {% if can_view_requests %}<a href="{% url 'customer_portal:request-queue' %}">Solicitações</a>{% endif %}
           {% if can_view_orders %}<a href="{% url 'order-list' %}">Pedidos</a>{% endif %}
           {% if can_view_companies %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
-          {% if can_manage_companies %}<a href="{% url 'customer_portal:access-list' %}">Acessos dos clientes</a>{% endif %}
           {% if can_view_products %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
           {% if can_view_closings %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
           {% if can_access_intelligence %}<a href="{% url 'intelligence:central' %}">Central Inteligente</a>{% endif %}
-          {% if can_view_audit %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
-          {% if can_manage_users or can_manage_attendants %}<a href="{% url 'user-access-list' %}">Configurações</a>{% endif %}
-          {% if can_access_technical_area %}<a href="{% url 'technical-area' %}">Área técnica</a>{% endif %}
         </nav>
 
-        <div class="userbox userbox-desktop">
-          <span class="user-name">{{ user }}</span>
-          {% for role in current_roles %}<span class="role-badge">{{ role }}</span>{% empty %}{% endfor %}
-          <a href="{% url 'password_change' %}">Senha</a>
-          <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="link-button">Sair</button></form>
+        <div class="header-actions header-actions-desktop">
+          {% if can_manage_companies or can_view_audit or can_manage_users or can_manage_attendants or can_access_technical_area %}
+            <details class="header-menu">
+              <summary>Administração</summary>
+              <nav class="header-menu-panel" aria-label="Administração">
+                {% if can_manage_companies %}
+                  <a href="{% url 'customer_portal:access-list' %}">Acessos dos clientes</a>
+                  <a href="{% url 'customer_portal:access-request-queue' %}">Solicitações de acesso</a>
+                {% endif %}
+                {% if can_view_audit %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
+                {% if can_manage_users or can_manage_attendants %}<a href="{% url 'user-access-list' %}">Usuários internos</a>{% endif %}
+                {% if can_access_technical_area %}<a href="{% url 'technical-area' %}">Área técnica</a>{% endif %}
+              </nav>
+            </details>
+          {% endif %}
+
+          <details class="header-menu account-menu">
+            <summary>Conta</summary>
+            <div class="header-menu-panel account-menu-panel">
+              <div class="account-identity">
+                <strong class="user-name">{{ user }}</strong>
+                <div class="account-roles">{% for role in current_roles %}<span class="role-badge">{{ role }}</span>{% empty %}{% endfor %}</div>
+              </div>
+              <a href="{% url 'password_change' %}">Alterar senha</a>
+              <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="menu-logout">Sair</button></form>
+            </div>
+          </details>
         </div>
 
         <details class="mobile-menu">
           <summary aria-label="Abrir menu"><span>Menu</span><span class="menu-icon" aria-hidden="true">☰</span></summary>
           <div class="mobile-menu-panel">
-            <div class="mobile-account">
-              <strong>{{ user }}</strong>
-              {% for role in current_roles %}<span class="role-badge">{{ role }}</span>{% empty %}{% endfor %}
-            </div>
-            <nav class="nav-mobile" aria-label="Navegação móvel">
-              {% if can_access_dashboard %}<a href="{% url 'dashboard' %}">Painel</a>{% endif %}
-              {% if can_view_requests %}<a href="{% url 'customer_portal:request-queue' %}">Solicitações</a>{% endif %}
-              {% if can_view_orders %}<a href="{% url 'order-list' %}">Pedidos</a>{% endif %}
-              {% if can_view_companies %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
-              {% if can_manage_companies %}<a href="{% url 'customer_portal:access-list' %}">Acessos dos clientes</a>{% endif %}
-              {% if can_view_products %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
-              {% if can_view_closings %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
-              {% if can_access_intelligence %}<a href="{% url 'intelligence:central' %}">Central Inteligente</a>{% endif %}
-              {% if can_view_audit %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
-              {% if can_manage_users or can_manage_attendants %}<a href="{% url 'user-access-list' %}">Configurações</a>{% endif %}
-              {% if can_access_technical_area %}<a href="{% url 'technical-area' %}">Área técnica</a>{% endif %}
-              <a href="{% url 'password_change' %}">Alterar senha</a>
-              <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="mobile-logout">Sair</button></form>
+            <nav class="nav-mobile internal-nav-mobile" aria-label="Navegação móvel">
+              <div class="mobile-menu-section">
+                <strong class="mobile-menu-heading">Operação</strong>
+                {% if can_access_dashboard %}<a href="{% url 'dashboard' %}">Painel</a>{% endif %}
+                {% if can_view_requests %}<a href="{% url 'customer_portal:request-queue' %}">Solicitações</a>{% endif %}
+                {% if can_view_orders %}<a href="{% url 'order-list' %}">Pedidos</a>{% endif %}
+                {% if can_view_companies %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
+                {% if can_view_products %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
+                {% if can_view_closings %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
+                {% if can_access_intelligence %}<a href="{% url 'intelligence:central' %}">Central Inteligente</a>{% endif %}
+              </div>
+              {% if can_manage_companies or can_view_audit or can_manage_users or can_manage_attendants or can_access_technical_area %}
+                <div class="mobile-menu-section">
+                  <strong class="mobile-menu-heading">Administração</strong>
+                  {% if can_manage_companies %}
+                    <a href="{% url 'customer_portal:access-list' %}">Acessos dos clientes</a>
+                    <a href="{% url 'customer_portal:access-request-queue' %}">Solicitações de acesso</a>
+                  {% endif %}
+                  {% if can_view_audit %}<a href="{% url 'audit-list' %}">Auditoria</a>{% endif %}
+                  {% if can_manage_users or can_manage_attendants %}<a href="{% url 'user-access-list' %}">Usuários internos</a>{% endif %}
+                  {% if can_access_technical_area %}<a href="{% url 'technical-area' %}">Área técnica</a>{% endif %}
+                </div>
+              {% endif %}
+              <div class="mobile-menu-section mobile-account-section">
+                <strong class="mobile-menu-heading">Conta</strong>
+                <div class="mobile-account">
+                  <strong>{{ user }}</strong>
+                  {% for role in current_roles %}<span class="role-badge">{{ role }}</span>{% empty %}{% endfor %}
+                </div>
+                <a href="{% url 'password_change' %}">Alterar senha</a>
+                <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="mobile-logout">Sair</button></form>
+              </div>
             </nav>
           </div>
         </details>
