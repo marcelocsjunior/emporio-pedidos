@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView
 
+from accounts.access import Capability, CapabilityRequiredMixin
 from orders.services import record_audit
 
 from .access import user_can_process_ai, visible_recommendations_for_user
@@ -17,9 +18,8 @@ from .engine import audit_manual_enqueue, enqueue_due_events
 from .models import AIEvent, AIFeedback, AIRecommendation, DataContext
 
 
-class CentralIntelligenceView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
-    permission_required = "intelligence.view_airecommendation"
-    raise_exception = True
+class CentralIntelligenceView(CapabilityRequiredMixin, ListView):
+    capability_required = Capability.ACCESS_INTELLIGENCE
     model = AIRecommendation
     template_name = "intelligence/central.html"
     context_object_name = "recommendations"
@@ -60,9 +60,8 @@ class CentralIntelligenceView(LoginRequiredMixin, PermissionRequiredMixin, ListV
         return context
 
 
-class RecommendationFeedbackView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    permission_required = "intelligence.add_aifeedback"
-    raise_exception = True
+class RecommendationFeedbackView(CapabilityRequiredMixin, View):
+    capability_required = Capability.RECORD_AI_FEEDBACK
     http_method_names = ("post",)
 
     @transaction.atomic

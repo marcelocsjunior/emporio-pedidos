@@ -175,14 +175,14 @@ class Mvp04ClosingTests(TestCase):
         self.assertNotIn(self.pending.number, csv_text)
         self.assertIn("40,00", csv_text)
 
-    def test_attendance_can_view_but_cannot_generate_or_change_closing(self):
+    def test_attendance_cannot_access_any_closing_route_by_default(self):
         closing = self._generate()
         self.client.force_login(self.attendance)
 
-        self.assertEqual(self.client.get(reverse("closing-list")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("closing-list")).status_code, 403)
         self.assertEqual(
             self.client.get(reverse("closing-detail", kwargs={"pk": closing.pk})).status_code,
-            200,
+            403,
         )
         self.assertEqual(
             self.client.post(
@@ -192,6 +192,10 @@ class Mvp04ClosingTests(TestCase):
                     "reference_month": self.month.strftime("%Y-%m"),
                 },
             ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.get(reverse("closing-export-csv", kwargs={"pk": closing.pk})).status_code,
             403,
         )
         self.assertEqual(

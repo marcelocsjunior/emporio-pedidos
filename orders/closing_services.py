@@ -11,6 +11,8 @@ from django.db import transaction
 from django.db.models import QuerySet
 from django.utils import timezone
 
+from accounts.access import Capability, user_has_capability
+
 from .models import MonthlyClosing, Order
 from .services import generate_monthly_closing, record_audit
 
@@ -94,7 +96,7 @@ def generate_or_recalculate_closing(
 
 
 def allowed_closing_statuses_for_user(user, closing: MonthlyClosing) -> list[str]:
-    if not user.has_perm("orders.change_monthlyclosing"):
+    if not user_has_capability(user, Capability.REVIEW_CLOSINGS):
         return []
     return [
         value
@@ -111,8 +113,8 @@ def change_closing_status(
     actor=None,
     reason: str = "",
 ) -> MonthlyClosing:
-    closing = MonthlyClosing.objects.select_for_update().select_related("company").get(
-        pk=closing_id
+    closing = (
+        MonthlyClosing.objects.select_for_update().select_related("company").get(pk=closing_id)
     )
     current_status = closing.status
     if new_status not in MonthlyClosing.Status.values:

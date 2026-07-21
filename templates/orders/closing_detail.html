@@ -10,7 +10,7 @@
     <p>{{ closing.reference_month|date:"m/Y" }} · <span class="status-pill closing-status-{{ closing.status }}">{{ closing.get_status_display }}</span></p>
   </div>
   <div class="heading-actions">
-    <a class="button ghost" href="{% url 'closing-export-csv' closing.pk %}">Exportar CSV</a>
+    {% if can_export_closings %}<a class="button ghost" href="{% url 'closing-export-csv' closing.pk %}">Exportar CSV</a>{% endif %}
     <a class="button ghost" href="{% url 'closing-list' %}">Voltar</a>
   </div>
 </div>
@@ -22,7 +22,7 @@
   <article class="metric-card"><span>Status</span><strong>{{ closing.get_status_display }}</strong></article>
 </section>
 
-{% if perms.orders.change_monthlyclosing %}
+{% if can_review_closings %}
 <section class="panel closing-actions-panel">
   <div class="panel-heading"><div><div class="eyebrow">Controle financeiro</div><h2>Ações do fechamento</h2></div></div>
   <div class="closing-actions">
@@ -80,7 +80,7 @@
 <section class="detail-grid">
   <article class="panel">
     <div class="panel-heading"><div><div class="eyebrow">Registro interno</div><h2>Observações</h2></div></div>
-    {% if perms.orders.change_monthlyclosing %}
+    {% if can_review_closings %}
     <form method="post" action="{% url 'closing-notes-update' closing.pk %}" class="stacked-form">
       {% csrf_token %}{{ notes_form.notes }}
       <button class="button" type="submit">Salvar observações</button>

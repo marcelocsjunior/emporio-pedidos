@@ -29,4 +29,4 @@ class CustomerPortalAccessMixin(LoginRequiredMixin):
 
 
 class ReviewPermissionMixin(CapabilityRequiredMixin):
-    capability_required = Capability.APPROVE_REQUESTS
+    capability_required = Capability.VIEW_REQUESTS

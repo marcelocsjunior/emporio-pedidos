@@ -15,15 +15,16 @@ def user_roles(request):
         roles = ("Administrador Raiz do Sistema",)
     else:
         roles = tuple(visible_names.get(role, role) for role in role_names)
+    capability_flags = {
+        f"can_{capability.value}": user_has_capability(request.user, capability)
+        for capability in Capability
+    }
     return {
         "current_roles": roles,
-        "can_manage_attendants": user_has_capability(
-            request.user, Capability.MANAGE_ATTENDANTS
-        ),
+        "can_manage_attendants": user_has_capability(request.user, Capability.MANAGE_ATTENDANTS),
         "can_access_technical_area": user_has_capability(
             request.user, Capability.ACCESS_TECHNICAL_AREA
         ),
-        "can_manage_users": user_has_capability(
-            request.user, Capability.MANAGE_LOWER_USERS
-        ),
+        "can_manage_users": user_has_capability(request.user, Capability.MANAGE_LOWER_USERS),
+        **capability_flags,
     }

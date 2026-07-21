@@ -315,7 +315,7 @@ def test_company_context_change_creates_new_idempotent_event():
 @override_settings(AI_MODE="pilot")
 def test_administrator_can_requeue_failed_event(client):
     user = get_user_model().objects.create_superuser(
-        username="admin-retry",
+        username="ti",
         password="senha-forte-123",
     )
     event = AIEvent.objects.create(

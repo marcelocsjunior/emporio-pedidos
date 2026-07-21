@@ -94,7 +94,9 @@ def _request_message(customer_request: CustomerOrderRequest) -> str:
 
 
 def _request_cards(user, *, now: datetime) -> list[AssistantCard]:
-    if not user.has_perm("customer_portal.review_customerorderrequest"):
+    from accounts.access import Capability, user_has_capability
+
+    if not user_has_capability(user, Capability.VIEW_REQUESTS):
         return []
 
     duplicate_statuses = (
@@ -153,9 +155,7 @@ def _request_cards(user, *, now: datetime) -> list[AssistantCard]:
         elif duplicate:
             severity = AIRecommendation.Severity.ATTENTION
             title = f"Conferir possível duplicidade em {customer_request.protocol}"
-            summary = (
-                "Existe outra solicitação ou pedido da mesma empresa com data e valor iguais."
-            )
+            summary = "Existe outra solicitação ou pedido da mesma empresa com data e valor iguais."
             suggested_action = "Comparar os registros antes de autorizar."
             kind = KIND_INCONSISTENCY
         else:
@@ -212,7 +212,9 @@ def _order_cards(
     now: datetime,
     recommendations: list[AIRecommendation],
 ) -> list[AssistantCard]:
-    if not user.has_perm("orders.view_order"):
+    from accounts.access import Capability, user_has_capability
+
+    if not user_has_capability(user, Capability.VIEW_ORDERS):
         return []
 
     local_now = timezone.localtime(now)
@@ -255,9 +257,7 @@ def _order_cards(
         elif order.status in (Order.Status.PENDING, Order.Status.RECEIVED):
             severity = AIRecommendation.Severity.ATTENTION
             title = f"Pedido {order.number} aguardando andamento"
-            summary = (
-                "O pedido está autorizado, mas ainda precisa avançar no fluxo operacional."
-            )
+            summary = "O pedido está autorizado, mas ainda precisa avançar no fluxo operacional."
             suggested_action = "Abrir o pedido e conferir a próxima transição permitida."
             kind = KIND_PROGRESS
         else:
@@ -290,7 +290,9 @@ def _standalone_ai_cards(
     recommendations: list[AIRecommendation],
 ) -> list[AssistantCard]:
     cards: list[AssistantCard] = []
-    can_view_orders = user.has_perm("orders.view_order")
+    from accounts.access import Capability, user_has_capability
+
+    can_view_orders = user_has_capability(user, Capability.VIEW_ORDERS)
 
     for recommendation in recommendations:
         if recommendation.category == AIRecommendation.Category.DUPLICATE:

@@ -1,5 +1,7 @@
 from django.shortcuts import redirect
 
+from accounts.access import Capability, user_has_capability
+
 
 class CustomerPortalBoundaryMiddleware:
     def __init__(self, get_response):
@@ -10,7 +12,7 @@ class CustomerPortalBoundaryMiddleware:
         if (
             request.path == "/"
             and user.is_authenticated
-            and not user.has_perm("orders.view_order")
+            and not user_has_capability(user, Capability.VIEW_ORDERS)
         ):
             access = getattr(user, "customer_portal_access", None)
             if access and access.active and access.company.active:

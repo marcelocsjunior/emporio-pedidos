@@ -20,6 +20,7 @@ from .access import (
     user_has_capability,
 )
 from .forms import AttendantCreateForm, AttendantUpdateForm, ManagedUserForm
+from .models import UserCapabilityOverride
 from .roles import ROLE_ATTENDANCE, ROLE_SYSTEM_ADMIN
 from .user_management import (
     MANAGED_ROLE_NAMES,
@@ -34,6 +35,77 @@ from .user_management import (
 )
 
 User = get_user_model()
+
+
+def _replace_capability_overrides(*, user, form: ManagedUserForm) -> dict[str, list[str]]:
+    allowed, denied = form.capability_deltas()
+    user.capability_overrides.all().delete()
+    UserCapabilityOverride.objects.bulk_create(
+        [
+            UserCapabilityOverride(user=user, capability=capability.value, effect=effect)
+            for effect, capabilities in (
+                (UserCapabilityOverride.Effect.ALLOW, allowed),
+                (UserCapabilityOverride.Effect.DENY, denied),
+            )
+            for capability in sorted(capabilities, key=str)
+        ]
+    )
+    user.__dict__.pop("_capability_override_cache", None)
+    return {
+        "capabilities_added": sorted(capability.value for capability in allowed),
+        "capabilities_removed": sorted(capability.value for capability in denied),
+    }
+
+
+def _audit_capability_form_denial(*, request, target) -> None:
+    submitted = set(request.POST.getlist("capabilities"))
+    if submitted or "restore_profile_defaults" in request.POST:
+        reason = (
+            "root_override_forbidden"
+            if target.username == ROOT_USERNAME
+            else "override_actor_forbidden_or_protected"
+        )
+        audit_denied(
+            actor=request.user,
+            target=target,
+            action="user.capability_override_denied",
+            reason=reason,
+        )
+
+
+def _user_form_context(*, form, creating, target=None):
+    capability_groups = {}
+    role_defaults = {}
+    if "capabilities" in form.fields:
+        from .access import CAPABILITY_CATALOG, ROLE_CAPABILITIES
+
+        role_defaults = {
+            role: [capability.value for capability in capabilities]
+            for role, capabilities in ROLE_CAPABILITIES.items()
+        }
+        selected_capabilities = set(
+            form.data.getlist("capabilities") if form.is_bound else form["capabilities"].value()
+        )
+        for item in CAPABILITY_CATALOG:
+            capability_groups.setdefault(item.category, []).append(
+                {
+                    "value": item.capability.value,
+                    "name": item.name,
+                    "description": item.description,
+                    "configurable": item.configurable,
+                    "selected": item.capability.value in selected_capabilities,
+                }
+            )
+    else:
+        selected_capabilities = set()
+    return {
+        "form": form,
+        "creating": creating,
+        "managed_user": target,
+        "capability_groups": capability_groups,
+        "role_defaults": role_defaults,
+        "selected_capabilities": selected_capabilities,
+    }
 
 
 class EmporioLoginView(LoginView):
@@ -105,7 +177,11 @@ class AttendantCreateView(CapabilityRequiredMixin, View):
         return redirect("attendant-list")
 
     def _render(self, request, form, creating):
-        return render(request, self.template_name, {"form": form, "creating": creating})
+        return render(
+            request,
+            self.template_name,
+            _user_form_context(form=form, creating=creating),
+        )
 
 
 class AttendantUpdateView(CapabilityRequiredMixin, View):
@@ -238,20 +314,23 @@ class UserAccessCreateView(CapabilityRequiredMixin, View):
                     action="user.privilege_escalation_denied",
                     reason="protected_post_fields",
                 )
+            _audit_capability_form_denial(request=request, target=request.user)
             return self._render(request, form, True)
         if form.cleaned_data["role"] not in roles_actor_can_assign(request.user):
             raise PermissionDenied("Perfil fora do escopo autorizado.")
         user = form.save()
-        action = (
-            "system_admin.created"
-            if user_role(user) == ROLE_SYSTEM_ADMIN
-            else "user.created"
-        )
+        deltas = _replace_capability_overrides(user=user, form=form)
+        action = "system_admin.created" if user_role(user) == ROLE_SYSTEM_ADMIN else "user.created"
         record_audit(
             actor=request.user,
             action=action,
             entity=user,
-            payload={"username": user.username, "role": display_role(user), "active": True},
+            payload={
+                "username": user.username,
+                "role": display_role(user),
+                "active": True,
+                **deltas,
+            },
         )
         messages.success(request, "Usuário criado com troca obrigatória de senha.")
         return redirect("user-access-list")
@@ -303,10 +382,16 @@ class UserAccessUpdateView(CapabilityRequiredMixin, View):
                     action="root_admin.change_denied",
                     reason="protected_fields",
                 )
+            _audit_capability_form_denial(request=request, target=target)
             return self._render(request, form, target)
         # Revalidação feita com a linha bloqueada imediatamente antes da gravação.
         self._authorize(request.user, target)
         user = form.save()
+        deltas = (
+            _replace_capability_overrides(user=user, form=form)
+            if "capabilities" in form.fields
+            else {}
+        )
         after_role = display_role(user)
         if user_role(user) == ROLE_SYSTEM_ADMIN:
             action = "system_admin.updated"
@@ -325,6 +410,10 @@ class UserAccessUpdateView(CapabilityRequiredMixin, View):
                     "display_name": user.display_name,
                     "role": after_role,
                 },
+                **deltas,
+                "restored_profile_defaults": bool(
+                    form.cleaned_data.get("restore_profile_defaults")
+                ),
             },
         )
         messages.success(request, "Cadastro atualizado.")
@@ -334,7 +423,7 @@ class UserAccessUpdateView(CapabilityRequiredMixin, View):
         return render(
             request,
             self.template_name,
-            {"form": form, "managed_user": target, "creating": False},
+            _user_form_context(form=form, creating=False, target=target),
         )
 
 

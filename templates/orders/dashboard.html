@@ -9,7 +9,11 @@
   <div>
     <div class="eyebrow">Operação de {{ today|date:"d/m/Y" }}</div>
     <h1>Painel operacional</h1>
+    {% if can_view_closings %}
     <p>Leitura rápida dos pedidos, produção e fechamentos.</p>
+    {% else %}
+    <p>Leitura rápida dos pedidos e produção.</p>
+    {% endif %}
   </div>
   {% if assistant_active_enabled %}
   <div class="assistant-alert-toolbar" aria-label="Alertas de novos pedidos">
@@ -38,7 +42,7 @@
   <article class="metric"><span>Valor previsto</span><strong>R$ {{ today_total|floatformat:2 }}</strong></article>
   <article class="metric"><span>Empresas ativas</span><strong>{{ active_companies }}</strong></article>
   <article class="metric"><span>Produtos ativos</span><strong>{{ active_products }}</strong></article>
-  <article class="metric"><span>Fechamentos pendentes</span><strong>{{ pending_closings }}</strong></article>
+  {% if can_view_closings %}<article class="metric"><span>Fechamentos pendentes</span><strong>{{ pending_closings }}</strong></article>{% endif %}
 </section>
 
 {% if assistant_panel_enabled %}
@@ -83,7 +87,7 @@
 <section class="panel">
   <div class="panel-heading">
     <div><div class="eyebrow">Hoje</div><h2>Pedidos por status</h2></div>
-    {% if perms.orders.view_order %}<a class="button" href="{% url 'order-list' %}?delivery_date={{ today|date:'Y-m-d' }}">Ver pedidos</a>{% endif %}
+    {% if can_view_orders %}<a class="button" href="{% url 'order-list' %}?delivery_date={{ today|date:'Y-m-d' }}">Ver pedidos</a>{% endif %}
   </div>
   <div class="status-grid">
     {% for card in status_cards %}
@@ -94,7 +98,7 @@
   </div>
 </section>
 
-{% if perms.orders.view_order %}
+{% if can_view_orders %}
 <section class="panel">
   <div class="panel-heading"><div><div class="eyebrow">Últimos registros</div><h2>Pedidos recentes</h2></div></div>
   <div class="table-wrap">

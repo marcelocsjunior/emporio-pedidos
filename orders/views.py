@@ -4,7 +4,6 @@ import uuid
 from datetime import date
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Q, Sum
@@ -29,12 +28,12 @@ from .services import (
 )
 
 
-class SecurePermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
-    raise_exception = True
+class SecurePermissionMixin(CapabilityRequiredMixin):
+    pass
 
 
 class DashboardView(CapabilityRequiredMixin, TemplateView):
-    capability_required = Capability.VIEW_ORDERS
+    capability_required = Capability.ACCESS_DASHBOARD
     template_name = "orders/dashboard.html"
 
     def get_context_data(self, **kwargs):
@@ -64,15 +63,17 @@ class DashboardView(CapabilityRequiredMixin, TemplateView):
                 )["total"]
                 or 0,
                 "status_cards": status_cards,
-                "recent_orders": Order.objects.select_related("company").order_by(
-                    "-created_at"
-                )[:8],
+                "recent_orders": Order.objects.select_related("company").order_by("-created_at")[
+                    :8
+                ],
                 "pending_closings": MonthlyClosing.objects.filter(
                     status__in=(
                         MonthlyClosing.Status.PENDING,
                         MonthlyClosing.Status.TO_REVIEW,
                     )
-                ).count(),
+                ).count()
+                if user_has_capability(self.request.user, Capability.VIEW_CLOSINGS)
+                else 0,
             }
         )
         return context
@@ -93,7 +94,7 @@ class SearchableListMixin:
 
 
 class CompanyListView(SecurePermissionMixin, SearchableListMixin, ListView):
-    permission_required = "orders.view_company"
+    capability_required = Capability.VIEW_COMPANIES
     model = Company
     template_name = "orders/company_list.html"
     context_object_name = "companies"
@@ -102,7 +103,7 @@ class CompanyListView(SecurePermissionMixin, SearchableListMixin, ListView):
 
 
 class CompanyCreateView(SecurePermissionMixin, View):
-    permission_required = "orders.add_company"
+    capability_required = Capability.MANAGE_COMPANIES
     template_name = "orders/company_form.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -125,7 +126,7 @@ class CompanyCreateView(SecurePermissionMixin, View):
 
 
 class CompanyUpdateView(SecurePermissionMixin, View):
-    permission_required = "orders.change_company"
+    capability_required = Capability.MANAGE_COMPANIES
     template_name = "orders/company_form.html"
 
     def get_object(self, pk) -> Company:
@@ -165,7 +166,7 @@ class CompanyUpdateView(SecurePermissionMixin, View):
 
 
 class CompanyToggleActiveView(SecurePermissionMixin, View):
-    permission_required = "orders.change_company"
+    capability_required = Capability.MANAGE_COMPANIES
     http_method_names = ("post",)
 
     @transaction.atomic
@@ -188,7 +189,7 @@ class CompanyToggleActiveView(SecurePermissionMixin, View):
 
 
 class ProductListView(SecurePermissionMixin, SearchableListMixin, ListView):
-    permission_required = "orders.view_product"
+    capability_required = Capability.VIEW_PRODUCTS
     model = Product
     template_name = "orders/product_list.html"
     context_object_name = "products"
@@ -197,7 +198,7 @@ class ProductListView(SecurePermissionMixin, SearchableListMixin, ListView):
 
 
 class ProductCreateView(SecurePermissionMixin, View):
-    permission_required = "orders.add_product"
+    capability_required = Capability.MANAGE_PRODUCTS
     template_name = "orders/product_form.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -225,7 +226,7 @@ class ProductCreateView(SecurePermissionMixin, View):
 
 
 class ProductUpdateView(SecurePermissionMixin, View):
-    permission_required = "orders.change_product"
+    capability_required = Capability.MANAGE_PRODUCTS
     template_name = "orders/product_form.html"
 
     def get_object(self, pk) -> Product:
@@ -276,7 +277,7 @@ class ProductUpdateView(SecurePermissionMixin, View):
 
 
 class ProductToggleActiveView(SecurePermissionMixin, View):
-    permission_required = "orders.change_product"
+    capability_required = Capability.MANAGE_PRODUCTS
     http_method_names = ("post",)
 
     @transaction.atomic
@@ -299,7 +300,7 @@ class ProductToggleActiveView(SecurePermissionMixin, View):
 
 
 class OrderListView(SecurePermissionMixin, SearchableListMixin, ListView):
-    permission_required = "orders.view_order"
+    capability_required = Capability.VIEW_ORDERS
     model = Order
     template_name = "orders/order_list.html"
     context_object_name = "orders"
@@ -326,7 +327,7 @@ class OrderListView(SecurePermissionMixin, SearchableListMixin, ListView):
 
 
 class OrderCreateView(SecurePermissionMixin, View):
-    permission_required = ("orders.add_order", "orders.add_orderitem")
+    capability_required = Capability.CREATE_ORDERS
     template_name = "orders/order_form.html"
     session_key = "emporio_order_creation_key"
 
@@ -397,7 +398,7 @@ class OrderCreateView(SecurePermissionMixin, View):
 
 
 class OrderUpdateView(SecurePermissionMixin, View):
-    permission_required = "orders.change_order"
+    capability_required = Capability.EDIT_ORDERS
     template_name = "orders/order_form.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -470,7 +471,7 @@ class OrderUpdateView(SecurePermissionMixin, View):
 
 
 class OrderDetailView(SecurePermissionMixin, DetailView):
-    permission_required = "orders.view_order"
+    capability_required = Capability.VIEW_ORDERS
     model = Order
     template_name = "orders/order_detail.html"
     context_object_name = "order"
@@ -489,13 +490,15 @@ class OrderDetailView(SecurePermissionMixin, DetailView):
         context["allowed_statuses"] = [
             (value, label) for value, label in Order.Status.choices if value in allowed
         ]
-        context["can_edit"] = user_has_capability(
-            self.request.user, Capability.EDIT_ORDERS
-        ) and self.object.status in ORDER_EDITABLE_STATUSES
+        context["can_edit"] = (
+            user_has_capability(self.request.user, Capability.EDIT_ORDERS)
+            and self.object.status in ORDER_EDITABLE_STATUSES
+        )
         return context
 
 
-class OrderStatusUpdateView(LoginRequiredMixin, View):
+class OrderStatusUpdateView(CapabilityRequiredMixin, View):
+    capability_required = Capability.CHANGE_ORDER_STATUS
     http_method_names = ("post",)
 
     def post(self, request: HttpRequest, pk) -> HttpResponse:
@@ -526,7 +529,7 @@ class OrderStatusUpdateView(LoginRequiredMixin, View):
 
 
 class ClosingListView(SecurePermissionMixin, ListView):
-    permission_required = "orders.view_monthlyclosing"
+    capability_required = Capability.VIEW_CLOSINGS
     model = MonthlyClosing
     template_name = "orders/closing_list.html"
     context_object_name = "closings"
@@ -537,7 +540,7 @@ class ClosingListView(SecurePermissionMixin, ListView):
 
 
 class AuditListView(SecurePermissionMixin, ListView):
-    permission_required = "orders.view_auditevent"
+    capability_required = Capability.VIEW_AUDIT
     model = AuditEvent
     template_name = "orders/audit_list.html"
     context_object_name = "events"

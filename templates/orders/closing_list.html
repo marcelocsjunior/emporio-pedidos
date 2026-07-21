@@ -7,7 +7,7 @@
   <div><div class="eyebrow">Financeiro</div><h1>Fechamentos mensais</h1><p>Somente pedidos entregues entram no cálculo.</p></div>
 </div>
 
-{% if perms.orders.add_monthlyclosing %}
+{% if can_review_closings %}
 <section class="panel closing-generator">
   <div class="panel-heading"><div><div class="eyebrow">Gerar ou recalcular</div><h2>Novo fechamento</h2></div></div>
   <form method="post" action="{% url 'closing-generate' %}" class="closing-generate-form">

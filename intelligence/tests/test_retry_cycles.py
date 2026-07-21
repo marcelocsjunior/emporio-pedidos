@@ -50,7 +50,7 @@ def system_recommendation(event: AIEvent) -> AIRecommendation:
 @override_settings(AI_ENABLED=False, AI_MODE="pilot")
 def test_retry_sequence_keeps_old_runs_and_can_complete(client):
     user = get_user_model().objects.create_superuser(
-        username="admin-retry-cycle",
+        username="ti",
         password="senha-forte-123",
     )
     event = AIEvent.objects.create(

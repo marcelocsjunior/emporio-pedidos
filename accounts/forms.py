@@ -3,7 +3,15 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 
-from .access import ROOT_USERNAME, is_root_system_admin
+from .access import (
+    CAPABILITY_CATALOG,
+    CONFIGURABLE_CAPABILITIES,
+    ROLE_CAPABILITIES,
+    ROOT_USERNAME,
+    Capability,
+    effective_capabilities_for_user,
+    is_root_system_admin,
+)
 from .user_management import roles_actor_can_assign, user_role
 
 User = get_user_model()
@@ -64,6 +72,12 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
         required=False,
         help_text="Obrigatória na criação; a troca será exigida no primeiro acesso.",
     )
+    capabilities = forms.MultipleChoiceField(
+        label="Funções permitidas",
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    restore_profile_defaults = forms.BooleanField(required=False, widget=forms.HiddenInput)
 
     class Meta:
         model = User
@@ -83,6 +97,28 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
                 self.fields["role"].initial = "root"
         else:
             self.fields["initial_password"].required = True
+        can_customize = is_root_system_admin(actor) and not (
+            self.instance.pk and self.instance.username == ROOT_USERNAME
+        )
+        if can_customize:
+            self.fields["capabilities"].choices = (
+                (item.capability.value, item.name)
+                for item in CAPABILITY_CATALOG
+                if item.configurable
+            )
+            if self.instance.pk:
+                self.fields["capabilities"].initial = tuple(
+                    capability.value
+                    for capability in effective_capabilities_for_user(self.instance)
+                )
+            else:
+                default_role = allowed[0] if allowed else None
+                self.fields["capabilities"].initial = tuple(
+                    capability.value for capability in ROLE_CAPABILITIES.get(default_role, ())
+                )
+        else:
+            self.fields.pop("capabilities")
+            self.fields.pop("restore_profile_defaults")
         self._style_fields()
 
     def clean(self):
@@ -102,7 +138,33 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
         if self.instance.pk and self.instance.username == ROOT_USERNAME:
             if self.data.get("username", ROOT_USERNAME) != ROOT_USERNAME:
                 raise ValidationError("O login da conta raiz é imutável.")
+        submitted_capabilities = set(self.data.getlist("capabilities"))
+        catalog_values = {capability.value for capability in CONFIGURABLE_CAPABILITIES}
+        if submitted_capabilities and not is_root_system_admin(self.actor):
+            raise ValidationError("Somente o Administrador Raiz pode personalizar funções.")
+        if submitted_capabilities - catalog_values:
+            raise ValidationError("Capability inválida ou protegida pelo sistema.")
+        if (
+            self.instance.pk
+            and self.instance.username == ROOT_USERNAME
+            and "capabilities" in self.data
+        ):
+            raise ValidationError("A conta raiz não aceita personalizações.")
         return cleaned
+
+    def capability_deltas(self) -> tuple[set[Capability], set[Capability]]:
+        if "capabilities" not in self.fields:
+            return set(), set()
+        role = self.cleaned_data["role"]
+        base = set(ROLE_CAPABILITIES.get(role, ()))
+        selected = (
+            {Capability(value) for value in self.cleaned_data["capabilities"]}
+            if "capabilities" in self.data
+            else base
+        )
+        if self.cleaned_data.get("restore_profile_defaults"):
+            selected = base
+        return selected - base, base - selected
 
     def save(self, commit=True):
         user = super().save(commit=False)
