@@ -100,7 +100,6 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
         *_model_permissions("orders", "order", ("add", "change", "view")),
         *_model_permissions("orders", "orderitem", ("add", "change", "delete", "view")),
         *_model_permissions("orders", "orderstatushistory", ("add", "view")),
-        *_model_permissions("orders", "monthlyclosing", ("view",)),
         *PORTAL_REVIEW,
         *AI_FEEDBACK,
         ("intelligence", "view_ai_delay"),
