@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Solicitar acesso — Empório Pedidos{% endblock %}
+{% block content %}
+<section class="auth-card">
+  <div class="eyebrow">Portal B2B</div>
+  <h1>Solicitar acesso</h1>
+  {% if submitted %}
+    <div class="message success">{{ public_message }}</div>
+    <p>Uma pessoa responsável fará a validação dos dados informados.</p>
+    <a class="button" href="{% url 'login' %}">Voltar ao login</a>
+  {% else %}
+    <p>Os dados serão analisados por uma pessoa responsável. O acesso não é automático.</p>
+    <form method="post" class="stack-form" novalidate>
+      {% csrf_token %}{{ form.website }}
+      {{ form.non_field_errors }}
+      {% for field in form.visible_fields %}<label>{{ field.label }} {{ field }} {{ field.errors }}</label>{% endfor %}
+      <label><input type="checkbox" required> Confirmo que os dados serão analisados.</label>
+      <label><input type="checkbox" required> Entendo que o envio não libera acesso automaticamente.</label>
+      <button class="button primary" type="submit">Enviar solicitação</button>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

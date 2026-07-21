@@ -5,6 +5,7 @@ from .models import (
     CustomerOrderRequest,
     CustomerOrderRequestItem,
     CustomerPortalAccess,
+    CustomerPortalAccessRequest,
 )
 
 
@@ -13,6 +14,14 @@ class CustomerPortalAccessAdmin(admin.ModelAdmin):
     list_display = ("user", "company", "active", "updated_at")
     list_filter = ("active",)
     search_fields = ("user__username", "user__email", "company__name", "company__code")
+
+
+@admin.register(CustomerPortalAccessRequest)
+class CustomerPortalAccessRequestAdmin(admin.ModelAdmin):
+    list_display = ("customer_name", "requester_name", "status", "requested_at", "reviewed_by")
+    list_filter = ("status", "entity_type")
+    search_fields = ("customer_name", "requester_name")
+    readonly_fields = tuple(field.name for field in CustomerPortalAccessRequest._meta.fields)
 
 
 @admin.register(CustomerDeliveryLocation)

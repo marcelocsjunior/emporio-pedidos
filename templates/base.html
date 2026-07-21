@@ -25,6 +25,7 @@
           {% if can_view_requests %}<a href="{% url 'customer_portal:request-queue' %}">Solicitações</a>{% endif %}
           {% if can_view_orders %}<a href="{% url 'order-list' %}">Pedidos</a>{% endif %}
           {% if can_view_companies %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
+          {% if can_manage_companies %}<a href="{% url 'customer_portal:access-list' %}">Acessos dos clientes</a>{% endif %}
           {% if can_view_products %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
           {% if can_view_closings %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
           {% if can_access_intelligence %}<a href="{% url 'intelligence:central' %}">Central Inteligente</a>{% endif %}
@@ -52,6 +53,7 @@
               {% if can_view_requests %}<a href="{% url 'customer_portal:request-queue' %}">Solicitações</a>{% endif %}
               {% if can_view_orders %}<a href="{% url 'order-list' %}">Pedidos</a>{% endif %}
               {% if can_view_companies %}<a href="{% url 'company-list' %}">Empresas</a>{% endif %}
+              {% if can_manage_companies %}<a href="{% url 'customer_portal:access-list' %}">Acessos dos clientes</a>{% endif %}
               {% if can_view_products %}<a href="{% url 'product-list' %}">Produtos</a>{% endif %}
               {% if can_view_closings %}<a href="{% url 'closing-list' %}">Fechamentos</a>{% endif %}
               {% if can_access_intelligence %}<a href="{% url 'intelligence:central' %}">Central Inteligente</a>{% endif %}

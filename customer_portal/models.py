@@ -31,6 +31,24 @@ class CustomerPortalAccess(models.Model):
         verbose_name="empresa",
     )
     active = models.BooleanField("ativo", default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="customer_portal_accesses_created",
+        verbose_name="criado por",
+    )
+    revoked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="customer_portal_accesses_revoked",
+        verbose_name="bloqueado por",
+    )
+    revoked_at = models.DateTimeField("bloqueado em", null=True, blank=True)
+    revocation_reason = models.CharField("motivo do bloqueio", max_length=300, blank=True)
     created_at = models.DateTimeField("criado em", auto_now_add=True)
     updated_at = models.DateTimeField("atualizado em", auto_now=True)
 
@@ -47,6 +65,70 @@ class CustomerPortalAccess(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} — {self.company.name}"
+
+
+class CustomerPortalAccessRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pendente"
+        IN_REVIEW = "in_review", "Em análise"
+        APPROVED = "approved", "Aprovada"
+        REJECTED = "rejected", "Rejeitada"
+        CANCELLED = "cancelled", "Cancelada"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer_name = models.CharField("empresa ou cliente informado", max_length=180)
+    entity_type = models.CharField(
+        "natureza", max_length=20, choices=Company.EntityType.choices, blank=True
+    )
+    document_fingerprint = models.CharField(max_length=64, editable=False)
+    document_last_four = models.CharField("final do documento", max_length=4, editable=False)
+    requester_name = models.CharField("solicitante", max_length=150)
+    email = models.EmailField("e-mail", max_length=254)
+    phone = models.CharField("telefone", max_length=30)
+    message = models.CharField("mensagem", max_length=1000, blank=True)
+    status = models.CharField(
+        "status", max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+    requested_at = models.DateTimeField("solicitada em", auto_now_add=True)
+    reviewed_at = models.DateTimeField("analisada em", null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="portal_access_requests_reviewed",
+        verbose_name="responsável pela análise",
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="portal_access_requests",
+        verbose_name="empresa vinculada",
+    )
+    decision_notes = models.CharField("decisão interna", max_length=1000, blank=True)
+    idempotency_fingerprint = models.CharField(max_length=64, editable=False)
+    abuse_metadata = models.JSONField(default=dict, blank=True, editable=False)
+
+    class Meta:
+        ordering = ("-requested_at",)
+        verbose_name = "solicitação de acesso ao portal"
+        verbose_name_plural = "solicitações de acesso ao portal"
+        indexes = [
+            models.Index(fields=("status", "requested_at"), name="portal_access_req_status_idx"),
+            models.Index(
+                fields=("idempotency_fingerprint", "requested_at"),
+                name="portal_access_req_idem_idx",
+            ),
+        ]
+
+    @property
+    def masked_document(self) -> str:
+        return f"***{self.document_last_four}"
+
+    def __str__(self) -> str:
+        return f"{self.customer_name} — {self.get_status_display()}"
 
 
 class CustomerDeliveryLocation(models.Model):
