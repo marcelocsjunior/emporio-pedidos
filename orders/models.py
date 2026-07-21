@@ -9,6 +9,8 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 
+from .validators import digits_only, validate_cnpj, validate_cpf, validate_numeric_text
+
 
 def _code(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8].upper()}"
@@ -35,24 +37,64 @@ class TimeStampedModel(models.Model):
 
 
 class Company(TimeStampedModel):
+    class EntityType(models.TextChoices):
+        INDIVIDUAL = "individual", "Pessoa física"
+        COMPANY = "company", "Pessoa jurídica"
+
     class CustomerType(models.TextChoices):
         MONTHLY = "monthly", "Mensalista"
         SPOT = "spot", "Avulso"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    code = models.CharField(max_length=20, unique=True, default=company_code, editable=False)
+    code = models.CharField(
+        max_length=20, unique=True, default=company_code, editable=False
+    )
     name = models.CharField("empresa", max_length=180)
+    entity_type = models.CharField(
+        "natureza do cliente",
+        max_length=20,
+        choices=EntityType.choices,
+        default=EntityType.COMPANY,
+    )
+    document = models.CharField(
+        "CPF/CNPJ",
+        max_length=18,
+        blank=True,
+        help_text="Opcional. Aceita pontuação e é armazenado somente com números.",
+    )
     responsible_name = models.CharField("responsável", max_length=150, blank=True)
     phone = models.CharField("telefone", max_length=30, blank=True)
+    email = models.EmailField("e-mail", blank=True)
     address = models.CharField("endereço", max_length=255, blank=True)
     city = models.CharField("cidade", max_length=120, blank=True)
+    state = models.CharField("UF", max_length=2, blank=True)
+    postal_code = models.CharField(
+        "CEP",
+        max_length=10,
+        blank=True,
+        help_text="Opcional. Aceita hífen e é armazenado somente com números.",
+    )
     customer_type = models.CharField(
         "tipo de cliente",
         max_length=20,
         choices=CustomerType.choices,
         default=CustomerType.SPOT,
     )
-    payment_terms = models.CharField("forma/condição de pagamento", max_length=180, blank=True)
+    payment_terms = models.CharField(
+        "forma/condição de pagamento", max_length=180, blank=True
+    )
+    source_system = models.CharField(
+        "sistema de origem",
+        max_length=50,
+        blank=True,
+        help_text="Preencher junto com o identificador externo.",
+    )
+    external_id = models.CharField(
+        "identificador externo",
+        max_length=100,
+        blank=True,
+        help_text="Identificador do cliente no sistema de origem.",
+    )
     notes = models.TextField("observações", blank=True)
     active = models.BooleanField("ativo", default=True)
     is_demo = models.BooleanField(
@@ -66,6 +108,82 @@ class Company(TimeStampedModel):
         verbose_name = "empresa"
         verbose_name_plural = "empresas"
         indexes = [models.Index(fields=("active", "name"))]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("document",),
+                condition=~models.Q(document=""),
+                name="unique_company_document",
+            ),
+            models.UniqueConstraint(
+                fields=("source_system", "external_id"),
+                condition=~models.Q(source_system="") & ~models.Q(external_id=""),
+                name="unique_company_source_external",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(source_system="", external_id="")
+                    | (~models.Q(source_system="") & ~models.Q(external_id=""))
+                ),
+                name="company_source_external_pair",
+            ),
+        ]
+
+    def normalize_identity_fields(self) -> None:
+        self.document = digits_only(self.document)
+        self.postal_code = digits_only(self.postal_code)
+        self.email = self.email.strip().lower()
+        self.state = self.state.strip().upper()
+        self.source_system = self.source_system.strip().lower()
+        self.external_id = self.external_id.strip()
+
+    def clean(self) -> None:
+        super().clean()
+        errors: dict[str, list[str] | str] = {}
+        raw_document = self.document
+        raw_postal_code = self.postal_code
+        try:
+            validate_numeric_text(raw_document, label="CPF/CNPJ")
+        except ValidationError as exc:
+            errors["document"] = exc.messages
+        try:
+            validate_numeric_text(raw_postal_code, label="CEP")
+        except ValidationError as exc:
+            errors["postal_code"] = exc.messages
+
+        self.normalize_identity_fields()
+
+        if self.document and "document" not in errors:
+            try:
+                if self.entity_type == self.EntityType.INDIVIDUAL:
+                    validate_cpf(self.document)
+                elif self.entity_type == self.EntityType.COMPANY:
+                    validate_cnpj(self.document)
+            except ValidationError as exc:
+                errors["document"] = exc.messages
+
+        if bool(self.source_system) != bool(self.external_id):
+            errors["external_id"] = (
+                "Sistema de origem e identificador externo devem ser preenchidos juntos."
+            )
+        if self.state and (len(self.state) != 2 or not self.state.isalpha()):
+            errors["state"] = "Informe uma UF válida com duas letras."
+        if self.postal_code and len(self.postal_code) != 8:
+            errors["postal_code"] = "Informe um CEP válido com oito números."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs) -> None:
+        self.normalize_identity_fields()
+        super().save(*args, **kwargs)
+
+    @property
+    def masked_document(self) -> str:
+        if len(self.document) == 11:
+            return f"***.***.***-{self.document[-2:]}"
+        if len(self.document) == 14:
+            return f"**.***.***/****-{self.document[-2:]}"
+        return ""
 
     def __str__(self) -> str:
         return f"{self.code} — {self.name}"
@@ -73,7 +191,9 @@ class Company(TimeStampedModel):
 
 class Product(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    code = models.CharField(max_length=20, unique=True, default=product_code, editable=False)
+    code = models.CharField(
+        max_length=20, unique=True, default=product_code, editable=False
+    )
     name = models.CharField("produto", max_length=180)
     category = models.CharField("categoria", max_length=100, blank=True)
     unit_price = models.DecimalField("valor unitário", max_digits=12, decimal_places=2)
@@ -105,7 +225,9 @@ class Order(TimeStampedModel):
         CANCELLED = "cancelled", "Cancelado"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    number = models.CharField(max_length=20, unique=True, default=order_number, editable=False)
+    number = models.CharField(
+        max_length=20, unique=True, default=order_number, editable=False
+    )
     creation_key = models.CharField(
         "chave de criação",
         max_length=64,
@@ -154,8 +276,12 @@ class Order(TimeStampedModel):
         related_name="orders_updated",
         verbose_name="atualizado por",
     )
-    delivered_at = models.DateTimeField("entregue em", null=True, blank=True, editable=False)
-    cancelled_at = models.DateTimeField("cancelado em", null=True, blank=True, editable=False)
+    delivered_at = models.DateTimeField(
+        "entregue em", null=True, blank=True, editable=False
+    )
+    cancelled_at = models.DateTimeField(
+        "cancelado em", null=True, blank=True, editable=False
+    )
 
     class Meta:
         ordering = ("-delivery_date", "-delivery_time", "number")
@@ -174,13 +300,23 @@ class Order(TimeStampedModel):
 
     def clean(self) -> None:
         super().clean()
-        if self.delivery_date and self.order_date and self.delivery_date < self.order_date:
-            raise ValidationError({"delivery_date": "A entrega não pode ser anterior ao pedido."})
+        if (
+            self.delivery_date
+            and self.order_date
+            and self.delivery_date < self.order_date
+        ):
+            raise ValidationError(
+                {"delivery_date": "A entrega não pode ser anterior ao pedido."}
+            )
 
     def recalculate_total(self) -> Decimal:
-        total = self.items.aggregate(total=Sum("line_total"))["total"] or Decimal("0.00")
+        total = self.items.aggregate(total=Sum("line_total"))["total"] or Decimal(
+            "0.00"
+        )
         total = total.quantize(Decimal("0.01"))
-        type(self).objects.filter(pk=self.pk).update(total_amount=total, updated_at=timezone.now())
+        type(self).objects.filter(pk=self.pk).update(
+            total_amount=total, updated_at=timezone.now()
+        )
         self.total_amount = total
         return total
 
@@ -202,7 +338,9 @@ class OrderItem(TimeStampedModel):
         related_name="order_items",
         verbose_name="produto",
     )
-    product_name = models.CharField("descrição congelada", max_length=180, editable=False)
+    product_name = models.CharField(
+        "descrição congelada", max_length=180, editable=False
+    )
     quantity = models.PositiveIntegerField("quantidade")
     unit_price = models.DecimalField("valor unitário", max_digits=12, decimal_places=2)
     line_total = models.DecimalField(
@@ -218,7 +356,9 @@ class OrderItem(TimeStampedModel):
         verbose_name = "item do pedido"
         verbose_name_plural = "itens do pedido"
         constraints = [
-            models.UniqueConstraint(fields=("order", "product"), name="unique_product_per_order"),
+            models.UniqueConstraint(
+                fields=("order", "product"), name="unique_product_per_order"
+            ),
             models.CheckConstraint(
                 condition=models.Q(quantity__gt=0),
                 name="order_item_quantity_gt_zero",
@@ -237,7 +377,9 @@ class OrderItem(TimeStampedModel):
         if self._state.adding and self.unit_price == Decimal("0.00"):
             self.unit_price = self.product.unit_price
         self.product_name = self.product.name
-        self.line_total = (Decimal(self.quantity) * self.unit_price).quantize(Decimal("0.01"))
+        self.line_total = (Decimal(self.quantity) * self.unit_price).quantize(
+            Decimal("0.01")
+        )
         super().save(*args, **kwargs)
         self.order.recalculate_total()
 
@@ -259,8 +401,12 @@ class OrderStatusHistory(models.Model):
         related_name="status_history",
         verbose_name="pedido",
     )
-    from_status = models.CharField("status anterior", max_length=30, choices=Order.Status.choices)
-    to_status = models.CharField("novo status", max_length=30, choices=Order.Status.choices)
+    from_status = models.CharField(
+        "status anterior", max_length=30, choices=Order.Status.choices
+    )
+    to_status = models.CharField(
+        "novo status", max_length=30, choices=Order.Status.choices
+    )
     reason = models.CharField("motivo", max_length=255, blank=True)
     changed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -354,7 +500,9 @@ class MonthlyClosing(TimeStampedModel):
         super().clean()
         if self.reference_month and self.reference_month.day != 1:
             raise ValidationError(
-                {"reference_month": "O mês de referência deve usar o primeiro dia do mês."}
+                {
+                    "reference_month": "O mês de referência deve usar o primeiro dia do mês."
+                }
             )
 
     def __str__(self) -> str:
