@@ -49,6 +49,13 @@ class CompanyForm(OperationalModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["entity_type"].required = False
+
+    def clean_entity_type(self) -> str:
+        return self.cleaned_data.get("entity_type") or Company.EntityType.COMPANY
+
     def clean_name(self) -> str:
         name = self.cleaned_data["name"].strip()
         duplicate = Company.objects.filter(name__iexact=name).exclude(
