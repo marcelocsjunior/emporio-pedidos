@@ -14,11 +14,11 @@
       {% for company in companies %}
         <tr>
           <td data-label="Código">{{ company.code }}</td>
-          <td data-label="Empresa"><strong>{{ company.name }}</strong></td>
+          <td data-label="Empresa"><strong>{{ company.name }}</strong><br><small>{{ company.get_entity_type_display }}{% if company.masked_document %} · {{ company.masked_document }}{% endif %}</small></td>
           <td data-label="Ambiente">{% if company.is_demo %}<span class="inactive-tag">Demonstração</span>{% else %}<span class="active-tag">Real</span>{% endif %}</td>
           <td data-label="Responsável">{{ company.responsible_name|default:"—" }}</td>
-          <td data-label="Telefone">{{ company.phone|default:"—" }}</td>
-          <td data-label="Cidade">{{ company.city|default:"—" }}</td>
+          <td data-label="Telefone">{{ company.phone|default:"—" }}{% if company.email %}<br><small>{{ company.email }}</small>{% endif %}</td>
+          <td data-label="Cidade">{{ company.city|default:"—" }}{% if company.state %}/{{ company.state }}{% endif %}</td>
           <td data-label="Tipo">{{ company.get_customer_type_display }}</td>
           <td data-label="Situação">{% if company.active %}<span class="active-tag">Ativa</span>{% else %}<span class="inactive-tag">Inativa</span>{% endif %}</td>
           {% if can_manage_companies %}
