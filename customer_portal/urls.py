@@ -1,5 +1,16 @@
 from django.urls import path
 
+from .access_views import (
+    AccessRequestQueueView,
+    AccessRequestReviewView,
+    PortalAccessDetailView,
+    PortalAccessListView,
+    PortalAccessStatusView,
+    PortalPasswordResetView,
+    PortalUserCreateView,
+    PortalUserLinkView,
+    PublicAccessRequestView,
+)
 from .active_review_views import ActiveRequestApproveView
 from .active_submit_views import ActivePortalRequestSubmitView
 from .portal_views import (
@@ -23,6 +34,33 @@ from .review_views import (
 app_name = "customer_portal"
 
 urlpatterns = [
+    path(
+        "portal/solicitar-acesso/", PublicAccessRequestView.as_view(), name="access-request-public"
+    ),
+    path("empresas/acessos/", PortalAccessListView.as_view(), name="access-list"),
+    path("empresas/acessos/novo/", PortalUserCreateView.as_view(), name="access-create"),
+    path("empresas/acessos/vincular/", PortalUserLinkView.as_view(), name="access-link"),
+    path("empresas/acessos/<uuid:pk>/", PortalAccessDetailView.as_view(), name="access-detail"),
+    path(
+        "empresas/acessos/<uuid:pk>/<str:action>/",
+        PortalAccessStatusView.as_view(),
+        name="access-status",
+    ),
+    path(
+        "empresas/acessos/<uuid:pk>/senha/redefinir/",
+        PortalPasswordResetView.as_view(),
+        name="access-password-reset",
+    ),
+    path(
+        "empresas/solicitacoes-acesso/",
+        AccessRequestQueueView.as_view(),
+        name="access-request-queue",
+    ),
+    path(
+        "empresas/solicitacoes-acesso/<uuid:pk>/",
+        AccessRequestReviewView.as_view(),
+        name="access-request-review",
+    ),
     path("portal/", PortalRequestListView.as_view(), name="request-list"),
     path("portal/pedidos/<uuid:pk>/", PortalOrderDetailView.as_view(), name="order-detail"),
     path(
