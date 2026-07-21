@@ -9,6 +9,8 @@ from django.shortcuts import redirect
 from django.views import View
 from django.views.generic import DetailView, ListView
 
+from accounts.access import Capability
+
 from .forms import ReviewReasonForm
 from .mixins import ReviewPermissionMixin
 from .models import CustomerOrderRequest
@@ -107,6 +109,7 @@ class RequestStartReviewView(ReviewPermissionMixin, View):
 
 
 class RequestCorrectionView(ReviewPermissionMixin, View):
+    capability_required = Capability.REQUEST_CORRECTION
     http_method_names = ("post",)
 
     def post(self, request, pk):
@@ -128,6 +131,7 @@ class RequestCorrectionView(ReviewPermissionMixin, View):
 
 
 class RequestRejectView(ReviewPermissionMixin, View):
+    capability_required = Capability.REJECT_REQUESTS
     http_method_names = ("post",)
 
     def post(self, request, pk):
@@ -149,6 +153,7 @@ class RequestRejectView(ReviewPermissionMixin, View):
 
 
 class RequestApproveView(ReviewPermissionMixin, View):
+    capability_required = Capability.APPROVE_REQUESTS
     http_method_names = ("post",)
 
     def post(self, request, pk):

@@ -10,6 +10,7 @@ ROLE_ATTENDANCE = "Atendimento"
 ROLE_PRODUCTION = "Produção"
 ROLE_EXPEDITION = "Expedição"
 ROLE_FINANCE = "Financeiro"
+ROLE_SUPPORT = "Desenvolvimento / Suporte"
 
 ROLE_NAMES = (
     ROLE_ADMIN,
@@ -17,6 +18,7 @@ ROLE_NAMES = (
     ROLE_PRODUCTION,
     ROLE_EXPEDITION,
     ROLE_FINANCE,
+    ROLE_SUPPORT,
 )
 
 PermissionSpec = tuple[str, str]
@@ -49,13 +51,13 @@ PORTAL_REVIEW = {
 
 ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
     ROLE_ADMIN: {
-        *_model_permissions("accounts", "user", ("add", "change", "delete", "view")),
-        *_model_permissions("orders", "company", ("add", "change", "delete", "view")),
-        *_model_permissions("orders", "product", ("add", "change", "delete", "view")),
-        *_model_permissions("orders", "order", ("add", "change", "delete", "view")),
+        *_model_permissions("accounts", "user", ("add", "change", "view")),
+        *_model_permissions("orders", "company", ("add", "change", "view")),
+        *_model_permissions("orders", "product", ("add", "change", "view")),
+        *_model_permissions("orders", "order", ("add", "change", "view")),
         *_model_permissions("orders", "orderitem", ("add", "change", "delete", "view")),
         *_model_permissions("orders", "orderstatushistory", ("add", "view")),
-        *_model_permissions("orders", "monthlyclosing", ("add", "change", "delete", "view")),
+        *_model_permissions("orders", "monthlyclosing", ("add", "change", "view")),
         *_model_permissions("orders", "auditevent", ("view",)),
         *_model_permissions("intelligence", "aievent", ("add", "change", "view")),
         *_model_permissions("intelligence", "aianalysisrun", ("view",)),
@@ -124,6 +126,7 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
         *AI_FEEDBACK,
         ("intelligence", "view_ai_finance"),
     },
+    ROLE_SUPPORT: set(),
 }
 
 

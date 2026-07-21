@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Área técnica · Empório{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Diagnóstico funcional seguro</div><h1>Área técnica</h1><p>Informações mínimas e sanitizadas da sessão autenticada.</p></div></div>
+<div class="panel"><dl><div><dt>Usuário</dt><dd>{{ user.username }}</dd></div><div><dt>Identificação</dt><dd>{{ user }}</dd></div><div><dt>Perfil</dt><dd>{% for role in current_roles %}{{ role }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div><div><dt>Ambiente</dt><dd>Aplicação interna do Empório</dd></div><div><dt>Diagnóstico</dt><dd>Autenticação funcional</dd></div></dl><p>Esta página não apresenta pedidos, clientes, banco, host, logs, configurações, tokens ou credenciais.</p></div>
+{% endblock %}

@@ -168,6 +168,8 @@ def change_order_status(
         raise ValidationError(
             {"status": f"Transição não permitida: {current_status} → {new_status}."}
         )
+    if new_status == Order.Status.CANCELLED and not reason.strip():
+        raise ValidationError({"reason": "Informe o motivo do cancelamento."})
     if new_status != Order.Status.CANCELLED:
         if not order.items.exists():
             raise ValidationError("Adicione ao menos um item antes de avançar o pedido.")

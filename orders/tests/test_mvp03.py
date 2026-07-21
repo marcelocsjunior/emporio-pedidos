@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import User
-from accounts.roles import ROLE_ATTENDANCE, ROLE_PRODUCTION, ensure_roles
+from accounts.roles import ROLE_ADMIN, ROLE_ATTENDANCE, ROLE_PRODUCTION, ensure_roles
 from orders.models import AuditEvent, Company, Order, OrderItem, Product
 
 
@@ -17,6 +17,10 @@ class Mvp03OperationalFlowTests(TestCase):
             "mvp03-atendimento", password="Senha!123456"
         )
         self.attendance.groups.add(Group.objects.get(name=ROLE_ATTENDANCE))
+        self.director = User.objects.create_user(
+            "mvp03-diretora", password="Senha!123456"
+        )
+        self.director.groups.add(Group.objects.get(name=ROLE_ADMIN))
         self.production = User.objects.create_user("mvp03-producao", password="Senha!123456")
         self.production.groups.add(Group.objects.get(name=ROLE_PRODUCTION))
         self.company = Company.objects.create(name="Empresa Operacional", active=True)
@@ -140,7 +144,7 @@ class Mvp03OperationalFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Order.objects.filter(creation_key=key).exists())
 
-    def test_editing_quantity_preserves_frozen_unit_price(self):
+    def test_director_editing_quantity_preserves_frozen_unit_price(self):
         order = Order.objects.create(
             company=self.company,
             order_date=timezone.localdate(),
@@ -158,6 +162,7 @@ class Mvp03OperationalFlowTests(TestCase):
         self.product_a.unit_price = Decimal("30.00")
         self.product_a.save(update_fields=("unit_price", "updated_at"))
 
+        self.client.force_login(self.director)
         response = self.client.post(
             reverse("order-update", args=[order.pk]),
             {

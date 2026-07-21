@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from accounts.access import Capability, user_has_capability
 from accounts.roles import (
     ROLE_ADMIN,
     ROLE_ATTENDANCE,
@@ -25,7 +26,7 @@ ROLE_TRANSITIONS: dict[str, dict[str, set[str]]] = {
 
 
 def allowed_statuses_for_user(user, order: Order) -> set[str]:
-    if not user.is_authenticated or not user.has_perm("orders.change_order"):
+    if not user_has_capability(user, Capability.CHANGE_ORDER_STATUS):
         return set()
     roles = set(user.groups.values_list("name", flat=True))
     if user.is_superuser or ROLE_ADMIN in roles:

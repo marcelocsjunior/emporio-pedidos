@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+
+from accounts.access import Capability, CapabilityRequiredMixin
 
 from .models import CustomerPortalAccess
 
@@ -26,6 +28,5 @@ class CustomerPortalAccessMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class ReviewPermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
-    permission_required = "customer_portal.review_customerorderrequest"
-    raise_exception = True
+class ReviewPermissionMixin(CapabilityRequiredMixin):
+    capability_required = Capability.APPROVE_REQUESTS
