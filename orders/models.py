@@ -46,9 +46,7 @@ class Company(TimeStampedModel):
         SPOT = "spot", "Avulso"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    code = models.CharField(
-        max_length=20, unique=True, default=company_code, editable=False
-    )
+    code = models.CharField(max_length=20, unique=True, default=company_code, editable=False)
     name = models.CharField("empresa", max_length=180)
     entity_type = models.CharField(
         "natureza do cliente",
@@ -80,9 +78,7 @@ class Company(TimeStampedModel):
         choices=CustomerType.choices,
         default=CustomerType.SPOT,
     )
-    payment_terms = models.CharField(
-        "forma/condição de pagamento", max_length=180, blank=True
-    )
+    payment_terms = models.CharField("forma/condição de pagamento", max_length=180, blank=True)
     source_system = models.CharField(
         "sistema de origem",
         max_length=50,
@@ -189,11 +185,81 @@ class Company(TimeStampedModel):
         return f"{self.code} — {self.name}"
 
 
+class CompanyImportBatch(models.Model):
+    class Format(models.TextChoices):
+        CSV = "csv", "CSV"
+        XML = "xml", "XML"
+
+    class Status(models.TextChoices):
+        UPLOADED = "uploaded", "Enviado"
+        PREVIEWED = "previewed", "Pré-visualizado"
+        COMPLETED = "completed", "Concluído"
+        FAILED = "failed", "Falhou"
+        ROLLED_BACK = "rolled_back", "Desfeito"
+        ROLLBACK_BLOCKED = "rollback_blocked", "Rollback bloqueado"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="company_import_batches",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    executed_at = models.DateTimeField(null=True, blank=True)
+    original_filename = models.CharField(max_length=255)
+    file_hash = models.CharField(max_length=64, db_index=True)
+    file_format = models.CharField(max_length=3, choices=Format.choices)
+    separator = models.CharField(max_length=1, blank=True)
+    encoding = models.CharField(max_length=30, blank=True)
+    mapping = models.JSONField(default=dict, blank=True)
+    total_count = models.PositiveIntegerField(default=0)
+    valid_count = models.PositiveIntegerField(default=0)
+    invalid_count = models.PositiveIntegerField(default=0)
+    duplicate_count = models.PositiveIntegerField(default=0)
+    ignored_count = models.PositiveIntegerField(default=0)
+    imported_count = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=30, choices=Status.choices, default=Status.UPLOADED)
+    final_message = models.CharField(max_length=500, blank=True)
+    rollback_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="company_import_rollbacks",
+    )
+    rollback_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=("file_hash", "status"))]
+
+    def __str__(self) -> str:
+        return f"{self.original_filename} — {self.get_status_display()}"
+
+
+class CompanyImportItem(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    batch = models.ForeignKey(CompanyImportBatch, on_delete=models.CASCADE, related_name="items")
+    company = models.OneToOneField(
+        Company,
+        on_delete=models.PROTECT,
+        related_name="import_item",
+    )
+    source_row = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("source_row",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("batch", "source_row"), name="unique_import_batch_source_row"
+            )
+        ]
+
+
 class Product(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    code = models.CharField(
-        max_length=20, unique=True, default=product_code, editable=False
-    )
+    code = models.CharField(max_length=20, unique=True, default=product_code, editable=False)
     name = models.CharField("produto", max_length=180)
     category = models.CharField("categoria", max_length=100, blank=True)
     unit_price = models.DecimalField("valor unitário", max_digits=12, decimal_places=2)
@@ -225,9 +291,7 @@ class Order(TimeStampedModel):
         CANCELLED = "cancelled", "Cancelado"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    number = models.CharField(
-        max_length=20, unique=True, default=order_number, editable=False
-    )
+    number = models.CharField(max_length=20, unique=True, default=order_number, editable=False)
     creation_key = models.CharField(
         "chave de criação",
         max_length=64,
@@ -276,12 +340,8 @@ class Order(TimeStampedModel):
         related_name="orders_updated",
         verbose_name="atualizado por",
     )
-    delivered_at = models.DateTimeField(
-        "entregue em", null=True, blank=True, editable=False
-    )
-    cancelled_at = models.DateTimeField(
-        "cancelado em", null=True, blank=True, editable=False
-    )
+    delivered_at = models.DateTimeField("entregue em", null=True, blank=True, editable=False)
+    cancelled_at = models.DateTimeField("cancelado em", null=True, blank=True, editable=False)
 
     class Meta:
         ordering = ("-delivery_date", "-delivery_time", "number")
@@ -300,23 +360,13 @@ class Order(TimeStampedModel):
 
     def clean(self) -> None:
         super().clean()
-        if (
-            self.delivery_date
-            and self.order_date
-            and self.delivery_date < self.order_date
-        ):
-            raise ValidationError(
-                {"delivery_date": "A entrega não pode ser anterior ao pedido."}
-            )
+        if self.delivery_date and self.order_date and self.delivery_date < self.order_date:
+            raise ValidationError({"delivery_date": "A entrega não pode ser anterior ao pedido."})
 
     def recalculate_total(self) -> Decimal:
-        total = self.items.aggregate(total=Sum("line_total"))["total"] or Decimal(
-            "0.00"
-        )
+        total = self.items.aggregate(total=Sum("line_total"))["total"] or Decimal("0.00")
         total = total.quantize(Decimal("0.01"))
-        type(self).objects.filter(pk=self.pk).update(
-            total_amount=total, updated_at=timezone.now()
-        )
+        type(self).objects.filter(pk=self.pk).update(total_amount=total, updated_at=timezone.now())
         self.total_amount = total
         return total
 
@@ -338,9 +388,7 @@ class OrderItem(TimeStampedModel):
         related_name="order_items",
         verbose_name="produto",
     )
-    product_name = models.CharField(
-        "descrição congelada", max_length=180, editable=False
-    )
+    product_name = models.CharField("descrição congelada", max_length=180, editable=False)
     quantity = models.PositiveIntegerField("quantidade")
     unit_price = models.DecimalField("valor unitário", max_digits=12, decimal_places=2)
     line_total = models.DecimalField(
@@ -356,9 +404,7 @@ class OrderItem(TimeStampedModel):
         verbose_name = "item do pedido"
         verbose_name_plural = "itens do pedido"
         constraints = [
-            models.UniqueConstraint(
-                fields=("order", "product"), name="unique_product_per_order"
-            ),
+            models.UniqueConstraint(fields=("order", "product"), name="unique_product_per_order"),
             models.CheckConstraint(
                 condition=models.Q(quantity__gt=0),
                 name="order_item_quantity_gt_zero",
@@ -377,9 +423,7 @@ class OrderItem(TimeStampedModel):
         if self._state.adding and self.unit_price == Decimal("0.00"):
             self.unit_price = self.product.unit_price
         self.product_name = self.product.name
-        self.line_total = (Decimal(self.quantity) * self.unit_price).quantize(
-            Decimal("0.01")
-        )
+        self.line_total = (Decimal(self.quantity) * self.unit_price).quantize(Decimal("0.01"))
         super().save(*args, **kwargs)
         self.order.recalculate_total()
 
@@ -401,12 +445,8 @@ class OrderStatusHistory(models.Model):
         related_name="status_history",
         verbose_name="pedido",
     )
-    from_status = models.CharField(
-        "status anterior", max_length=30, choices=Order.Status.choices
-    )
-    to_status = models.CharField(
-        "novo status", max_length=30, choices=Order.Status.choices
-    )
+    from_status = models.CharField("status anterior", max_length=30, choices=Order.Status.choices)
+    to_status = models.CharField("novo status", max_length=30, choices=Order.Status.choices)
     reason = models.CharField("motivo", max_length=255, blank=True)
     changed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -500,9 +540,7 @@ class MonthlyClosing(TimeStampedModel):
         super().clean()
         if self.reference_month and self.reference_month.day != 1:
             raise ValidationError(
-                {
-                    "reference_month": "O mês de referência deve usar o primeiro dia do mês."
-                }
+                {"reference_month": "O mês de referência deve usar o primeiro dia do mês."}
             )
 
     def __str__(self) -> str:

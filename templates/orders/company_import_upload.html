@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Importar clientes — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Clientes</div><h1>Importar clientes</h1><p>Envie um CSV UTF-8 ou XML no layout simples. Nada será cadastrado antes da confirmação.</p></div><a class="button" href="{% url 'company-import-list' %}">Lotes anteriores</a></div>
+<section class="panel"><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<p><small>Limites: 2 MB, 2.000 registros, 40 campos. CSV: vírgula ou ponto e vírgula. XML: sem DTD, entidades ou recursos externos.</small></p><button class="button primary" type="submit">Continuar para mapeamento</button></form></section>
+{% endblock %}

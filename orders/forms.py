@@ -6,6 +6,7 @@ from django import forms
 from django.db.models import Q
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
+from .company_imports import MAX_FILE_SIZE, SUPPORTED_FIELDS
 from .models import Company, Order, OrderItem, Product
 
 
@@ -58,13 +59,9 @@ class CompanyForm(OperationalModelForm):
 
     def clean_name(self) -> str:
         name = self.cleaned_data["name"].strip()
-        duplicate = Company.objects.filter(name__iexact=name).exclude(
-            pk=self.instance.pk
-        )
+        duplicate = Company.objects.filter(name__iexact=name).exclude(pk=self.instance.pk)
         if duplicate.exists():
-            raise forms.ValidationError(
-                "Já existe uma empresa cadastrada com este nome."
-            )
+            raise forms.ValidationError("Já existe uma empresa cadastrada com este nome.")
         return name
 
     def clean_email(self) -> str:
@@ -80,6 +77,39 @@ class CompanyForm(OperationalModelForm):
         return self.cleaned_data.get("external_id", "").strip()
 
 
+class CompanyImportUploadForm(forms.Form):
+    file = forms.FileField(label="Arquivo CSV ou XML")
+    allow_reupload = forms.BooleanField(
+        required=False,
+        label="Confirmo o reenvio deste arquivo já processado anteriormente",
+    )
+
+    def clean_file(self):
+        upload = self.cleaned_data["file"]
+        if upload.size > MAX_FILE_SIZE:
+            raise forms.ValidationError("O arquivo excede o limite de 2 MB.")
+        return upload
+
+
+class CompanyImportMappingForm(forms.Form):
+    def __init__(self, *args, headers: list[str], **kwargs):
+        super().__init__(*args, **kwargs)
+        choices = [("", "Ignorar")] + [
+            (field, field.replace("_", " ").title()) for field in SUPPORTED_FIELDS
+        ]
+        for index, header in enumerate(headers):
+            initial = header.strip().lower() if header.strip().lower() in SUPPORTED_FIELDS else ""
+            self.fields[f"field_{index}"] = forms.ChoiceField(
+                label=header, choices=choices, required=False, initial=initial
+            )
+
+    def mapping(self, headers: list[str]) -> dict[str, str]:
+        return {
+            header: self.cleaned_data.get(f"field_{index}", "")
+            for index, header in enumerate(headers)
+        }
+
+
 class ProductForm(OperationalModelForm):
     class Meta:
         model = Product
@@ -90,13 +120,9 @@ class ProductForm(OperationalModelForm):
 
     def clean_name(self) -> str:
         name = self.cleaned_data["name"].strip()
-        duplicate = Product.objects.filter(name__iexact=name).exclude(
-            pk=self.instance.pk
-        )
+        duplicate = Product.objects.filter(name__iexact=name).exclude(pk=self.instance.pk)
         if duplicate.exists():
-            raise forms.ValidationError(
-                "Já existe um produto cadastrado com este nome."
-            )
+            raise forms.ValidationError("Já existe um produto cadastrado com este nome.")
         return name
 
     def clean_unit_price(self) -> Decimal:
@@ -129,9 +155,7 @@ class OrderForm(OperationalModelForm):
         company_filter = Q(active=True)
         if self.instance and self.instance.pk and self.instance.company_id:
             company_filter |= Q(pk=self.instance.company_id)
-        self.fields["company"].queryset = Company.objects.filter(
-            company_filter
-        ).order_by("name")
+        self.fields["company"].queryset = Company.objects.filter(company_filter).order_by("name")
         self.fields["delivery_location"].required = True
 
     def clean_company(self) -> Company:
@@ -143,18 +167,12 @@ class OrderForm(OperationalModelForm):
 
 
 class OrderCreateForm(OrderForm):
-    creation_key = forms.CharField(
-        widget=forms.HiddenInput, min_length=32, max_length=64
-    )
+    creation_key = forms.CharField(widget=forms.HiddenInput, min_length=32, max_length=64)
 
 
 class ProductChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, product: Product) -> str:
-        price = (
-            f"{product.unit_price:,.2f}".replace(",", "X")
-            .replace(".", ",")
-            .replace("X", ".")
-        )
+        price = f"{product.unit_price:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         category = f" · {product.category}" if product.category else ""
         return f"{product.name}{category} — R$ {price}"
 
@@ -169,15 +187,13 @@ class OrderItemForm(OperationalModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._original_product_id = (
-            self.instance.product_id if self.instance.pk else None
-        )
+        self._original_product_id = self.instance.product_id if self.instance.pk else None
         product_filter = Q(active=True)
         if self._original_product_id:
             product_filter |= Q(pk=self._original_product_id)
-        self.fields["product"].queryset = Product.objects.filter(
-            product_filter
-        ).order_by("category", "name")
+        self.fields["product"].queryset = Product.objects.filter(product_filter).order_by(
+            "category", "name"
+        )
 
     def clean_product(self) -> Product:
         product = self.cleaned_data["product"]
@@ -212,9 +228,7 @@ class BaseOrderItemFormSet(BaseInlineFormSet):
             if not product and not quantity:
                 continue
             if not product or not quantity:
-                raise forms.ValidationError(
-                    "Preencha produto e quantidade em cada item utilizado."
-                )
+                raise forms.ValidationError("Preencha produto e quantidade em cada item utilizado.")
             if product.pk in product_ids:
                 raise forms.ValidationError(
                     "O mesmo produto não pode aparecer duas vezes no pedido."

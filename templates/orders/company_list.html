@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-heading">
   <div><div class="eyebrow">Cadastros</div><h1>Empresas</h1><p>Clientes disponíveis para lançamento de pedidos.</p></div>
-  {% if can_manage_companies %}<a class="button primary" href="{% url 'company-create' %}">Nova empresa</a>{% endif %}
+  {% if can_manage_companies %}<div class="row-actions"><a class="button" href="{% url 'company-import-list' %}">Importações</a><a class="button" href="{% url 'company-import-upload' %}">Importar clientes</a><a class="button primary" href="{% url 'company-create' %}">Nova empresa</a></div>{% endif %}
 </div>
 <form method="get" class="filter-bar"><input name="q" value="{{ request.GET.q }}" placeholder="Buscar empresa, responsável, cidade ou telefone"><button class="button" type="submit">Buscar</button></form>
 <section class="panel">

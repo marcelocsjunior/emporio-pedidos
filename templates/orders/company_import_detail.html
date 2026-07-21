@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Resultado do lote — Empório Pedidos{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Importação</div><h1>Resultado do lote</h1><p>{{ batch.original_filename }} · {{ batch.get_status_display }}</p></div><a class="button" href="{% url 'company-import-list' %}">Voltar aos lotes</a></div>
+<section class="panel"><dl><dt>Criado</dt><dd>{{ batch.created_at|date:"d/m/Y H:i" }}</dd><dt>Executado</dt><dd>{{ batch.executed_at|date:"d/m/Y H:i"|default:"—" }}</dd><dt>Total</dt><dd>{{ batch.total_count }}</dd><dt>Válidos</dt><dd>{{ batch.valid_count }}</dd><dt>Inválidos</dt><dd>{{ batch.invalid_count }}</dd><dt>Duplicados</dt><dd>{{ batch.duplicate_count }}</dd><dt>Ignorados</dt><dd>{{ batch.ignored_count }}</dd><dt>Importados</dt><dd>{{ batch.imported_count }}</dd><dt>Resultado</dt><dd>{{ batch.final_message|default:"—" }}</dd></dl></section>
+{% if batch.status == "completed" %}<section class="panel"><h2>Rollback seguro</h2><p>Somente clientes criados por este lote e sem qualquer vínculo operacional poderão ser removidos.</p><form method="post" action="{% url 'company-import-rollback' batch.pk %}">{% csrf_token %}<label><input type="checkbox" name="confirm" value="yes" required> Confirmo o rollback deste lote.</label><p><button class="button danger" type="submit">Executar rollback</button></p></form></section>{% endif %}
+{% endblock %}
