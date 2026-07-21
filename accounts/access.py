@@ -12,7 +12,10 @@ from .roles import (
     ROLE_FINANCE,
     ROLE_PRODUCTION,
     ROLE_SUPPORT,
+    ROLE_SYSTEM_ADMIN,
 )
+
+ROOT_USERNAME = "ti"
 
 
 class Capability(StrEnum):
@@ -29,6 +32,11 @@ class Capability(StrEnum):
     VIEW_AUDIT = "view_audit"
     MANAGE_ATTENDANTS = "manage_attendants"
     ACCESS_TECHNICAL_AREA = "access_technical_area"
+    MANAGE_LOWER_USERS = "manage_lower_users"
+    MANAGE_SYSTEM_ADMINS = "manage_system_admins"
+    VIEW_ALL_USERS = "view_all_users"
+    ACCESS_ADMIN_SETTINGS = "access_admin_settings"
+    ACCESS_ALL_OPERATIONS = "access_all_operations"
 
 
 DIRECTOR_CAPABILITIES = frozenset(
@@ -48,6 +56,9 @@ DIRECTOR_CAPABILITIES = frozenset(
     }
 )
 
+ALL_CAPABILITIES = frozenset(Capability)
+SYSTEM_ADMIN_CAPABILITIES = ALL_CAPABILITIES - {Capability.MANAGE_SYSTEM_ADMINS}
+
 ATTENDANT_CAPABILITIES = frozenset(
     {
         Capability.VIEW_ORDERS,
@@ -61,6 +72,7 @@ ATTENDANT_CAPABILITIES = frozenset(
 )
 
 ROLE_CAPABILITIES = {
+    ROLE_SYSTEM_ADMIN: SYSTEM_ADMIN_CAPABILITIES,
     ROLE_ADMIN: DIRECTOR_CAPABILITIES,
     ROLE_ATTENDANCE: ATTENDANT_CAPABILITIES,
     ROLE_PRODUCTION: frozenset(
@@ -79,6 +91,14 @@ ROLE_CAPABILITIES = {
     ROLE_SUPPORT: frozenset({Capability.ACCESS_TECHNICAL_AREA}),
 }
 
+
+def is_root_system_admin(user) -> bool:
+    return bool(
+        getattr(user, "is_authenticated", False)
+        and getattr(user, "username", None) == ROOT_USERNAME
+        and getattr(user, "is_superuser", False)
+    )
+
 COMPATIBILITY_PERMISSIONS = {
     Capability.VIEW_ORDERS: frozenset(
         {
@@ -92,8 +112,8 @@ COMPATIBILITY_PERMISSIONS = {
 def user_has_capability(user, capability: Capability) -> bool:
     if not user.is_authenticated or not user.is_active:
         return False
-    if user.is_superuser:
-        return capability in DIRECTOR_CAPABILITIES
+    if is_root_system_admin(user):
+        return True
     role_names = user.groups.values_list("name", flat=True)
     if any(capability in ROLE_CAPABILITIES.get(role, ()) for role in role_names):
         return True

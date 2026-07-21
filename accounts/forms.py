@@ -1,5 +1,10 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
+
+from .access import ROOT_USERNAME, is_root_system_admin
+from .user_management import roles_actor_can_assign, user_role
 
 User = get_user_model()
 
@@ -47,3 +52,70 @@ class AttendantUpdateForm(StyledFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._style_fields()
+
+
+class ManagedUserForm(StyledFormMixin, forms.ModelForm):
+    role = forms.ChoiceField(label="Perfil")
+    initial_password = forms.CharField(
+        label="Senha inicial",
+        strip=False,
+        min_length=8,
+        widget=forms.PasswordInput,
+        required=False,
+        help_text="Obrigatória na criação; a troca será exigida no primeiro acesso.",
+    )
+
+    class Meta:
+        model = User
+        fields = ("username", "display_name", "first_name", "last_name")
+
+    def __init__(self, *args, actor, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.actor = actor
+        allowed = roles_actor_can_assign(actor)
+        self.fields["role"].choices = ((role, role) for role in allowed)
+        if self.instance.pk:
+            self.fields["role"].initial = user_role(self.instance)
+            if self.instance.username == ROOT_USERNAME:
+                self.fields["username"].disabled = True
+                self.fields["role"].disabled = True
+                self.fields["role"].choices = (("root", "Administrador Raiz do Sistema"),)
+                self.fields["role"].initial = "root"
+        else:
+            self.fields["initial_password"].required = True
+        self._style_fields()
+
+    def clean(self):
+        cleaned = super().clean()
+        forbidden = {"is_staff", "is_superuser", "user_permissions", "groups"}
+        if forbidden.intersection(self.data):
+            raise ValidationError("Tentativa de alterar privilégios protegidos.")
+        role = cleaned.get("role")
+        editing_own_root = (
+            self.instance.pk
+            and self.instance.username == ROOT_USERNAME
+            and self.instance.pk == self.actor.pk
+            and is_root_system_admin(self.actor)
+        )
+        if not editing_own_root and role not in roles_actor_can_assign(self.actor):
+            raise ValidationError("Perfil fora do escopo autorizado.")
+        if self.instance.pk and self.instance.username == ROOT_USERNAME:
+            if self.data.get("username", ROOT_USERNAME) != ROOT_USERNAME:
+                raise ValidationError("O login da conta raiz é imutável.")
+        return cleaned
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        editing_root = bool(user.pk and user.username == ROOT_USERNAME)
+        if not editing_root:
+            user.is_staff = False
+            user.is_superuser = False
+        if not user.pk:
+            user.is_active = True
+            user.must_change_password = True
+            user.set_password(self.cleaned_data["initial_password"])
+        if commit:
+            user.save()
+            if not editing_root:
+                user.groups.set((Group.objects.get(name=self.cleaned_data["role"]),))
+        return user
