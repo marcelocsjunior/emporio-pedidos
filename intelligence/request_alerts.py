@@ -93,9 +93,7 @@ def _notification_payload(customer_request: CustomerOrderRequest) -> dict:
         "submitted_at": _submission_marker(customer_request),
         "delivery_date": customer_request.delivery_date.isoformat(),
         "delivery_time": (
-            customer_request.delivery_time.isoformat()
-            if customer_request.delivery_time
-            else None
+            customer_request.delivery_time.isoformat() if customer_request.delivery_time else None
         ),
         "total_amount": str(customer_request.total_amount),
         "item_quantity": item_quantity,
@@ -142,19 +140,14 @@ def _create_request_notification(
             "source_type": SOURCE_TYPE_CUSTOMER_REQUEST,
             "source_id": str(customer_request.pk),
             "title": f"Nova solicitação {customer_request.protocol}",
-            "summary": (
-                "Solicitação enviada pelo Portal B2B e aguardando "
-                "conferência humana."
-            ),
+            "summary": ("Solicitação enviada pelo Portal B2B e aguardando conferência humana."),
             "action_suggested": (
                 "Abrir a solicitação, conferir os dados e decidir o próximo passo."
             ),
             "evidence": {
                 **payload,
                 "reason": "Uma nova solicitação entrou na fila operacional.",
-                "risk": (
-                    "A demora na conferência reduz o prazo disponível para atendimento."
-                ),
+                "risk": ("A demora na conferência reduz o prazo disponível para atendimento."),
                 "analysis_status": "not_required",
             },
             "confidence": Decimal("1.000"),
@@ -203,10 +196,12 @@ def build_request_notification_panel(
     *,
     limit: int = 10,
 ) -> RequestNotificationPanel:
+    from accounts.access import Capability, user_has_capability
+
     if (
         not settings.AI_ACTIVE_ASSISTANT_ENABLED
         or not user.is_authenticated
-        or not user.has_perm("customer_portal.review_customerorderrequest")
+        or not user_has_capability(user, Capability.VIEW_REQUESTS)
     ):
         return RequestNotificationPanel((), 0, frozenset())
 

@@ -5,13 +5,14 @@ import uuid
 from datetime import datetime
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView
+
+from accounts.access import Capability, CapabilityRequiredMixin, user_has_capability
 
 from .closing_forms import ClosingGenerateForm, ClosingNotesForm
 from .closing_services import (
@@ -32,12 +33,8 @@ AUDIT_LABELS = {
 }
 
 
-class ClosingPermissionMixin(LoginRequiredMixin, PermissionRequiredMixin):
-    raise_exception = True
-
-
-class ClosingListView(ClosingPermissionMixin, ListView):
-    permission_required = "orders.view_monthlyclosing"
+class ClosingListView(CapabilityRequiredMixin, ListView):
+    capability_required = Capability.VIEW_CLOSINGS
     model = MonthlyClosing
     template_name = "orders/closing_list.html"
     context_object_name = "closings"
@@ -80,8 +77,8 @@ class ClosingListView(ClosingPermissionMixin, ListView):
         return context
 
 
-class ClosingGenerateView(ClosingPermissionMixin, View):
-    permission_required = "orders.add_monthlyclosing"
+class ClosingGenerateView(CapabilityRequiredMixin, View):
+    capability_required = Capability.REVIEW_CLOSINGS
     http_method_names = ("post",)
 
     def post(self, request: HttpRequest) -> HttpResponse:
@@ -106,8 +103,8 @@ class ClosingGenerateView(ClosingPermissionMixin, View):
         return redirect("closing-detail", pk=closing.pk)
 
 
-class ClosingDetailView(ClosingPermissionMixin, DetailView):
-    permission_required = "orders.view_monthlyclosing"
+class ClosingDetailView(CapabilityRequiredMixin, DetailView):
+    capability_required = Capability.VIEW_CLOSINGS
     model = MonthlyClosing
     template_name = "orders/closing_detail.html"
     context_object_name = "closing"
@@ -140,8 +137,14 @@ class ClosingDetailView(ClosingPermissionMixin, DetailView):
                     }
                     for event in events
                 ],
-                "can_recalculate": self.request.user.has_perm(
-                    "orders.change_monthlyclosing"
+                "can_review_closings": user_has_capability(
+                    self.request.user, Capability.REVIEW_CLOSINGS
+                ),
+                "can_export_closings": user_has_capability(
+                    self.request.user, Capability.EXPORT_CLOSINGS
+                ),
+                "can_recalculate": user_has_capability(
+                    self.request.user, Capability.REVIEW_CLOSINGS
                 )
                 and self.object.status
                 not in {
@@ -153,8 +156,8 @@ class ClosingDetailView(ClosingPermissionMixin, DetailView):
         return context
 
 
-class ClosingRecalculateView(ClosingPermissionMixin, View):
-    permission_required = "orders.change_monthlyclosing"
+class ClosingRecalculateView(CapabilityRequiredMixin, View):
+    capability_required = Capability.REVIEW_CLOSINGS
     http_method_names = ("post",)
 
     def post(self, request: HttpRequest, pk) -> HttpResponse:
@@ -172,8 +175,8 @@ class ClosingRecalculateView(ClosingPermissionMixin, View):
         return redirect("closing-detail", pk=pk)
 
 
-class ClosingStatusUpdateView(ClosingPermissionMixin, View):
-    permission_required = "orders.change_monthlyclosing"
+class ClosingStatusUpdateView(CapabilityRequiredMixin, View):
+    capability_required = Capability.REVIEW_CLOSINGS
     http_method_names = ("post",)
 
     def post(self, request: HttpRequest, pk) -> HttpResponse:
@@ -198,8 +201,8 @@ class ClosingStatusUpdateView(ClosingPermissionMixin, View):
         return redirect("closing-detail", pk=pk)
 
 
-class ClosingNotesUpdateView(ClosingPermissionMixin, View):
-    permission_required = "orders.change_monthlyclosing"
+class ClosingNotesUpdateView(CapabilityRequiredMixin, View):
+    capability_required = Capability.REVIEW_CLOSINGS
     http_method_names = ("post",)
 
     def post(self, request: HttpRequest, pk) -> HttpResponse:
@@ -224,8 +227,8 @@ def _csv_safe(value: object) -> str:
     return text
 
 
-class ClosingCsvExportView(ClosingPermissionMixin, View):
-    permission_required = "orders.view_monthlyclosing"
+class ClosingCsvExportView(CapabilityRequiredMixin, View):
+    capability_required = Capability.EXPORT_CLOSINGS
     http_method_names = ("get",)
 
     def get(self, request: HttpRequest, pk) -> HttpResponse:

@@ -191,7 +191,7 @@
     {% endif %}
   </div>
 
-  {% if perms.intelligence.view_airecommendation %}
+  {% if can_access_intelligence %}
   <div class="assistant-footer">
     <a href="{% url 'intelligence:central' %}">Ver histórico completo na Central Inteligente</a>
   </div>

@@ -91,7 +91,7 @@
       <button class="button compact" type="submit">Reprocessar evento</button>
     </form>
     {% endif %}
-    {% if perms.intelligence.add_aifeedback and recommendation.status != "expired" %}
+    {% if can_record_ai_feedback and recommendation.status != "expired" %}
     <form method="post" action="{% url 'intelligence:feedback' recommendation.pk %}" class="feedback-form">
       {% csrf_token %}
       <input name="notes" maxlength="255" placeholder="Observação opcional">

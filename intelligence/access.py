@@ -3,6 +3,8 @@ from __future__ import annotations
 from django.conf import settings
 from django.db.models import Q, QuerySet
 
+from accounts.access import Capability, user_has_capability
+
 from .active_assistant import CATEGORY_NEW_ORDER
 from .models import AIRecommendation
 
@@ -20,7 +22,7 @@ def user_can_process_ai(user) -> bool:
 
 def visible_recommendations_for_user(user) -> QuerySet[AIRecommendation]:
     queryset = AIRecommendation.objects.select_related("event")
-    if not user.is_authenticated or not user.has_perm("intelligence.view_airecommendation"):
+    if not user_has_capability(user, Capability.ACCESS_INTELLIGENCE):
         return queryset.none()
 
     if settings.AI_MODE == "shadow" and not user_can_process_ai(user):

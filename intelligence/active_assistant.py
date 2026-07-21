@@ -196,11 +196,7 @@ def _deterministic_action(
 
 
 def _build_candidate(order: Order) -> dict:
-    order = (
-        Order.objects.select_related("company")
-        .prefetch_related("items")
-        .get(pk=order.pk)
-    )
+    order = Order.objects.select_related("company").prefetch_related("items").get(pk=order.pk)
     now = timezone.localtime()
     delivery_at = _delivery_at(order)
     minutes_to_delivery = int((delivery_at - now).total_seconds() // 60)
@@ -562,9 +558,7 @@ def _mark_notification_failed(event: AIEvent, *, code: str) -> None:
     )
     recommendation.action_suggested = ACTION_LABELS[ACTION_CHECK_AND_RECEIVE]
     recommendation.evidence = evidence
-    recommendation.save(
-        update_fields=("summary", "action_suggested", "evidence", "updated_at")
-    )
+    recommendation.save(update_fields=("summary", "action_suggested", "evidence", "updated_at"))
 
 
 def _finish_failed_run(run: AIAnalysisRun, *, code: str) -> None:
@@ -593,11 +587,9 @@ def _process_active_event(event: AIEvent) -> None:
         assert_payload_safe(event.payload)
         output = _deterministic_output(event)
         if settings.AI_ENABLED:
-            output, latency_ms, prompt_tokens, output_tokens = (
-                ActiveOrderGeminiProvider().generate(
-                    payload=event.payload,
-                    prompt_version=prompt_version,
-                )
+            output, latency_ms, prompt_tokens, output_tokens = ActiveOrderGeminiProvider().generate(
+                payload=event.payload,
+                prompt_version=prompt_version,
             )
             run.provider = "gemini"
             run.model_name = settings.GEMINI_MODEL
@@ -619,9 +611,7 @@ def _process_active_event(event: AIEvent) -> None:
         event.status = AIEvent.Status.BLOCKED
         event.last_error_code = code
         event.locked_at = None
-        event.save(
-            update_fields=("status", "last_error_code", "locked_at", "updated_at")
-        )
+        event.save(update_fields=("status", "last_error_code", "locked_at", "updated_at"))
         _finish_failed_run(run, code=code)
         _mark_notification_failed(event, code=code)
     except ProviderTransientError as exc:
@@ -654,9 +644,7 @@ def _process_active_event(event: AIEvent) -> None:
         event.status = AIEvent.Status.FAILED
         event.last_error_code = code
         event.locked_at = None
-        event.save(
-            update_fields=("status", "last_error_code", "locked_at", "updated_at")
-        )
+        event.save(update_fields=("status", "last_error_code", "locked_at", "updated_at"))
         _mark_notification_failed(event, code=code)
 
 
@@ -672,10 +660,12 @@ def process_active_order_events(*, limit: int = 20) -> int:
 
 
 def build_active_notification_panel(user, *, limit: int = 10) -> ActiveNotificationPanel:
+    from accounts.access import Capability, user_has_capability
+
     if (
         not settings.AI_ACTIVE_ASSISTANT_ENABLED
         or not user.is_authenticated
-        or not user.has_perm("orders.view_order")
+        or not user_has_capability(user, Capability.VIEW_ORDERS)
     ):
         return ActiveNotificationPanel((), 0, frozenset())
 

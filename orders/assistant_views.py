@@ -13,6 +13,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
+from accounts.access import Capability, user_has_capability
 from customer_portal.models import CustomerOrderRequest
 from intelligence.active_assistant import (
     CATEGORY_NEW_ORDER,
@@ -34,23 +35,17 @@ from .views import DashboardView
 
 logger = logging.getLogger("emporio.ai")
 
-ORDER_ALERT_PERMISSION = "orders.view_order"
-REQUEST_ALERT_PERMISSION = "customer_portal.review_customerorderrequest"
-
 
 def _active_feature_enabled() -> bool:
-    return bool(
-        settings.AI_ASSISTANT_PANEL_ENABLED
-        and settings.AI_ACTIVE_ASSISTANT_ENABLED
-    )
+    return bool(settings.AI_ASSISTANT_PANEL_ENABLED and settings.AI_ACTIVE_ASSISTANT_ENABLED)
 
 
 def _can_view_active_alerts(user) -> bool:
     return bool(
         user.is_authenticated
         and (
-            user.has_perm(ORDER_ALERT_PERMISSION)
-            or user.has_perm(REQUEST_ALERT_PERMISSION)
+            user_has_capability(user, Capability.VIEW_ORDERS)
+            or user_has_capability(user, Capability.VIEW_REQUESTS)
         )
     )
 
@@ -59,10 +54,10 @@ def _assistant_context(request: HttpRequest) -> dict:
     enabled = bool(settings.AI_ASSISTANT_PANEL_ENABLED)
     feature_enabled = _active_feature_enabled()
     order_active_enabled = bool(
-        feature_enabled and request.user.has_perm(ORDER_ALERT_PERMISSION)
+        feature_enabled and user_has_capability(request.user, Capability.VIEW_ORDERS)
     )
     request_active_enabled = bool(
-        feature_enabled and request.user.has_perm(REQUEST_ALERT_PERMISSION)
+        feature_enabled and user_has_capability(request.user, Capability.VIEW_REQUESTS)
     )
     active_enabled = order_active_enabled or request_active_enabled
     context = {
@@ -171,7 +166,7 @@ class RecommendationViewedView(LoginRequiredMixin, View):
             recommendation.category == CATEGORY_NEW_ORDER
             and recommendation.source_type == SOURCE_TYPE_ORDER
         ):
-            if not request.user.has_perm(ORDER_ALERT_PERMISSION):
+            if not user_has_capability(request.user, Capability.VIEW_ORDERS):
                 raise PermissionDenied
             order = get_object_or_404(Order, pk=recommendation.source_id)
             audit_action = "assistant.notification_viewed"
@@ -183,7 +178,7 @@ class RecommendationViewedView(LoginRequiredMixin, View):
             recommendation.category == CATEGORY_NEW_REQUEST
             and recommendation.source_type == SOURCE_TYPE_CUSTOMER_REQUEST
         ):
-            if not request.user.has_perm(REQUEST_ALERT_PERMISSION):
+            if not user_has_capability(request.user, Capability.VIEW_REQUESTS):
                 raise PermissionDenied
             customer_request = get_object_or_404(
                 CustomerOrderRequest,
