@@ -26,23 +26,58 @@ class CompanyForm(OperationalModelForm):
         model = Company
         fields = (
             "name",
+            "entity_type",
+            "document",
             "responsible_name",
             "phone",
+            "email",
             "address",
             "city",
+            "state",
+            "postal_code",
             "customer_type",
             "payment_terms",
+            "source_system",
+            "external_id",
             "is_demo",
             "notes",
         )
-        widgets = {"notes": forms.Textarea(attrs={"rows": 3})}
+        widgets = {
+            "document": forms.TextInput(attrs={"inputmode": "numeric"}),
+            "postal_code": forms.TextInput(attrs={"inputmode": "numeric"}),
+            "state": forms.TextInput(attrs={"maxlength": "2"}),
+            "notes": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["entity_type"].required = False
+
+    def clean_entity_type(self) -> str:
+        return self.cleaned_data.get("entity_type") or Company.EntityType.COMPANY
 
     def clean_name(self) -> str:
         name = self.cleaned_data["name"].strip()
-        duplicate = Company.objects.filter(name__iexact=name).exclude(pk=self.instance.pk)
+        duplicate = Company.objects.filter(name__iexact=name).exclude(
+            pk=self.instance.pk
+        )
         if duplicate.exists():
-            raise forms.ValidationError("Já existe uma empresa cadastrada com este nome.")
+            raise forms.ValidationError(
+                "Já existe uma empresa cadastrada com este nome."
+            )
         return name
+
+    def clean_email(self) -> str:
+        return self.cleaned_data.get("email", "").strip().lower()
+
+    def clean_state(self) -> str:
+        return self.cleaned_data.get("state", "").strip().upper()
+
+    def clean_source_system(self) -> str:
+        return self.cleaned_data.get("source_system", "").strip().lower()
+
+    def clean_external_id(self) -> str:
+        return self.cleaned_data.get("external_id", "").strip()
 
 
 class ProductForm(OperationalModelForm):
@@ -55,9 +90,13 @@ class ProductForm(OperationalModelForm):
 
     def clean_name(self) -> str:
         name = self.cleaned_data["name"].strip()
-        duplicate = Product.objects.filter(name__iexact=name).exclude(pk=self.instance.pk)
+        duplicate = Product.objects.filter(name__iexact=name).exclude(
+            pk=self.instance.pk
+        )
         if duplicate.exists():
-            raise forms.ValidationError("Já existe um produto cadastrado com este nome.")
+            raise forms.ValidationError(
+                "Já existe um produto cadastrado com este nome."
+            )
         return name
 
     def clean_unit_price(self) -> Decimal:
@@ -90,7 +129,9 @@ class OrderForm(OperationalModelForm):
         company_filter = Q(active=True)
         if self.instance and self.instance.pk and self.instance.company_id:
             company_filter |= Q(pk=self.instance.company_id)
-        self.fields["company"].queryset = Company.objects.filter(company_filter).order_by("name")
+        self.fields["company"].queryset = Company.objects.filter(
+            company_filter
+        ).order_by("name")
         self.fields["delivery_location"].required = True
 
     def clean_company(self) -> Company:
@@ -102,12 +143,18 @@ class OrderForm(OperationalModelForm):
 
 
 class OrderCreateForm(OrderForm):
-    creation_key = forms.CharField(widget=forms.HiddenInput, min_length=32, max_length=64)
+    creation_key = forms.CharField(
+        widget=forms.HiddenInput, min_length=32, max_length=64
+    )
 
 
 class ProductChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, product: Product) -> str:
-        price = f"{product.unit_price:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        price = (
+            f"{product.unit_price:,.2f}".replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
         category = f" · {product.category}" if product.category else ""
         return f"{product.name}{category} — R$ {price}"
 
@@ -122,13 +169,15 @@ class OrderItemForm(OperationalModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._original_product_id = self.instance.product_id if self.instance.pk else None
+        self._original_product_id = (
+            self.instance.product_id if self.instance.pk else None
+        )
         product_filter = Q(active=True)
         if self._original_product_id:
             product_filter |= Q(pk=self._original_product_id)
-        self.fields["product"].queryset = Product.objects.filter(product_filter).order_by(
-            "category", "name"
-        )
+        self.fields["product"].queryset = Product.objects.filter(
+            product_filter
+        ).order_by("category", "name")
 
     def clean_product(self) -> Product:
         product = self.cleaned_data["product"]
@@ -163,7 +212,9 @@ class BaseOrderItemFormSet(BaseInlineFormSet):
             if not product and not quantity:
                 continue
             if not product or not quantity:
-                raise forms.ValidationError("Preencha produto e quantidade em cada item utilizado.")
+                raise forms.ValidationError(
+                    "Preencha produto e quantidade em cada item utilizado."
+                )
             if product.pk in product_ids:
                 raise forms.ValidationError(
                     "O mesmo produto não pode aparecer duas vezes no pedido."
