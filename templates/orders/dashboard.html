@@ -9,7 +9,11 @@
   <div>
     <div class="eyebrow">Operação de {{ today|date:"d/m/Y" }}</div>
     <h1>Painel operacional</h1>
+    {% if can_view_closings %}
     <p>Leitura rápida dos pedidos, produção e fechamentos.</p>
+    {% else %}
+    <p>Leitura rápida dos pedidos e produção.</p>
+    {% endif %}
   </div>
   {% if assistant_active_enabled %}
   <div class="assistant-alert-toolbar" aria-label="Alertas de novos pedidos">
@@ -38,7 +42,7 @@
   <article class="metric"><span>Valor previsto</span><strong>R$ {{ today_total|floatformat:2 }}</strong></article>
   <article class="metric"><span>Empresas ativas</span><strong>{{ active_companies }}</strong></article>
   <article class="metric"><span>Produtos ativos</span><strong>{{ active_products }}</strong></article>
-  <article class="metric"><span>Fechamentos pendentes</span><strong>{{ pending_closings }}</strong></article>
+  {% if can_view_closings %}<article class="metric"><span>Fechamentos pendentes</span><strong>{{ pending_closings }}</strong></article>{% endif %}
 </section>
 
 {% if assistant_panel_enabled %}

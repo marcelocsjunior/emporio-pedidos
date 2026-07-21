@@ -6,7 +6,13 @@ from django.urls import reverse
 
 from accounts.access import ROLE_CAPABILITIES, Capability, user_has_capability
 from accounts.models import UserCapabilityOverride
-from accounts.roles import ROLE_ATTENDANCE, ROLE_FINANCE, ROLE_SYSTEM_ADMIN, ensure_roles
+from accounts.roles import (
+    ROLE_ADMIN,
+    ROLE_ATTENDANCE,
+    ROLE_FINANCE,
+    ROLE_SYSTEM_ADMIN,
+    ensure_roles,
+)
 from orders.models import AuditEvent, Company, MonthlyClosing
 
 User = get_user_model()
@@ -27,6 +33,10 @@ class IndividualCapabilityTests(TestCase):
             username="finance-capabilities", password="safe-finance-password"
         )
         cls.finance.groups.add(roles[ROLE_FINANCE])
+        cls.director = User.objects.create_user(
+            username="director-capabilities", password="safe-director-password"
+        )
+        cls.director.groups.add(roles[ROLE_ADMIN])
         cls.system_admin = User.objects.create_user(
             username="system-capabilities", password="safe-system-password"
         )
@@ -39,8 +49,52 @@ class IndividualCapabilityTests(TestCase):
         )
 
     def setUp(self):
-        for user in (self.attendant, self.finance, self.system_admin):
+        for user in (self.attendant, self.finance, self.director, self.system_admin):
             user.__dict__.pop("_capability_override_cache", None)
+
+    def test_dashboard_hides_closings_without_capability(self):
+        self.client.force_login(self.attendant)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Fechamentos pendentes")
+        self.assertNotContains(response, "produção e fechamentos")
+        self.assertNotContains(response, reverse("closing-list"))
+        self.assertEqual(self.client.get(reverse("closing-list")).status_code, 403)
+
+    def test_dashboard_shows_closings_for_default_authorized_users(self):
+        for user in (self.finance, self.director, self.root):
+            with self.subTest(username=user.username):
+                self.client.force_login(user)
+
+                response = self.client.get(reverse("dashboard"))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "Fechamentos pendentes")
+                self.assertContains(response, "produção e fechamentos")
+
+    def test_dashboard_follows_individual_closing_overrides(self):
+        UserCapabilityOverride.objects.create(
+            user=self.attendant,
+            capability=Capability.VIEW_CLOSINGS,
+            effect=UserCapabilityOverride.Effect.ALLOW,
+        )
+        UserCapabilityOverride.objects.create(
+            user=self.finance,
+            capability=Capability.VIEW_CLOSINGS,
+            effect=UserCapabilityOverride.Effect.DENY,
+        )
+
+        self.client.force_login(self.attendant)
+        allowed_response = self.client.get(reverse("dashboard"))
+        self.assertContains(allowed_response, "Fechamentos pendentes")
+        self.assertContains(allowed_response, "produção e fechamentos")
+
+        self.client.force_login(self.finance)
+        denied_response = self.client.get(reverse("dashboard"))
+        self.assertNotContains(denied_response, "Fechamentos pendentes")
+        self.assertNotContains(denied_response, "produção e fechamentos")
 
     def test_user_without_override_keeps_profile_default(self):
         self.assertTrue(user_has_capability(self.attendant, Capability.VIEW_ORDERS))
