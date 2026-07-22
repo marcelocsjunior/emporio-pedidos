@@ -17,6 +17,7 @@ from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 
 from accounts.access import Capability, CapabilityRequiredMixin, user_has_capability
+from customer_portal.models import CustomerDeliveryLocation
 
 from .access import allowed_statuses_for_user
 from .company_imports import (
@@ -32,6 +33,7 @@ from .forms import (
     CompanyForm,
     CompanyImportMappingForm,
     CompanyImportUploadForm,
+    CustomerDeliveryLocationForm,
     OrderCreateForm,
     OrderForm,
     OrderItemFormSet,
@@ -151,12 +153,20 @@ class CompanyUpdateView(SecurePermissionMixin, View):
     def get_object(self, pk) -> Company:
         return get_object_or_404(Company, pk=pk)
 
+    def get_context(self, company: Company, form: CompanyForm) -> dict:
+        return {
+            "form": form,
+            "company": company,
+            "creating": False,
+            "delivery_locations": company.customer_delivery_locations.order_by("label"),
+        }
+
     def get(self, request: HttpRequest, pk) -> HttpResponse:
         company = self.get_object(pk)
         return render(
             request,
             self.template_name,
-            {"form": CompanyForm(instance=company), "company": company, "creating": False},
+            self.get_context(company, CompanyForm(instance=company)),
         )
 
     def post(self, request: HttpRequest, pk) -> HttpResponse:
@@ -167,7 +177,7 @@ class CompanyUpdateView(SecurePermissionMixin, View):
             return render(
                 request,
                 self.template_name,
-                {"form": form, "company": company, "creating": False},
+                self.get_context(company, form),
             )
         with transaction.atomic():
             company = form.save()
@@ -182,6 +192,135 @@ class CompanyUpdateView(SecurePermissionMixin, View):
             )
         messages.success(request, "Empresa atualizada com sucesso.")
         return redirect("company-list")
+
+
+class CompanyDeliveryLocationMixin(SecurePermissionMixin):
+    capability_required = Capability.MANAGE_COMPANIES
+    template_name = "orders/company_delivery_location_form.html"
+
+    def get_company(self):
+        return get_object_or_404(Company, pk=self.kwargs["company_pk"])
+
+
+class CompanyDeliveryLocationCreateView(CompanyDeliveryLocationMixin, View):
+    def get(self, request, company_pk):
+        company = self.get_company()
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": CustomerDeliveryLocationForm(company=company),
+                "company": company,
+            },
+        )
+
+    @transaction.atomic
+    def post(self, request, company_pk):
+        company = self.get_company()
+        form = CustomerDeliveryLocationForm(request.POST, company=company)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form, "company": company})
+        location = form.save(commit=False)
+        location.company = company
+        location.full_clean()
+        location.save()
+        record_audit(
+            actor=request.user,
+            action="delivery_location.created",
+            entity=location,
+            payload={"company_id": str(company.pk), "active": True},
+        )
+        messages.success(request, "Local de entrega cadastrado.")
+        return redirect("company-update", pk=company.pk)
+
+
+class CompanyDeliveryLocationUpdateView(CompanyDeliveryLocationMixin, View):
+    def get_object(self):
+        return get_object_or_404(
+            CustomerDeliveryLocation, pk=self.kwargs["pk"], company_id=self.kwargs["company_pk"]
+        )
+
+    def get(self, request, company_pk, pk):
+        location = self.get_object()
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": CustomerDeliveryLocationForm(instance=location, company=location.company),
+                "company": location.company,
+                "location": location,
+            },
+        )
+
+    @transaction.atomic
+    def post(self, request, company_pk, pk):
+        location = self.get_object()
+        before = {
+            "label": location.label,
+            "address": location.address,
+            "city": location.city,
+            "active": location.active,
+        }
+        form = CustomerDeliveryLocationForm(
+            request.POST, instance=location, company=location.company
+        )
+        if not form.is_valid():
+            return render(
+                request,
+                self.template_name,
+                {
+                    "form": form,
+                    "company": location.company,
+                    "location": location,
+                },
+            )
+        location = form.save()
+        record_audit(
+            actor=request.user,
+            action="delivery_location.updated",
+            entity=location,
+            payload={
+                "company_id": str(location.company_id),
+                "before": before,
+                "after": {
+                    "label": location.label,
+                    "address": location.address,
+                    "city": location.city,
+                    "active": location.active,
+                },
+            },
+        )
+        messages.success(request, "Local de entrega atualizado.")
+        return redirect("company-update", pk=location.company_id)
+
+
+class CompanyDeliveryLocationToggleView(CompanyDeliveryLocationMixin, View):
+    http_method_names = ("post",)
+
+    @transaction.atomic
+    def post(self, request, company_pk, pk):
+        location = get_object_or_404(
+            CustomerDeliveryLocation.objects.select_for_update(), pk=pk, company_id=company_pk
+        )
+        previous = location.active
+        location.active = not previous
+        location.save(update_fields=("active", "updated_at"))
+        record_audit(
+            actor=request.user,
+            action=(
+                "delivery_location.activated"
+                if location.active
+                else "delivery_location.deactivated"
+            ),
+            entity=location,
+            payload={
+                "company_id": str(location.company_id),
+                "from": previous,
+                "to": location.active,
+            },
+        )
+        messages.success(request, "Local ativado." if location.active else "Local inativado.")
+        return redirect("company-update", pk=location.company_id)
 
 
 class CompanyToggleActiveView(SecurePermissionMixin, View):

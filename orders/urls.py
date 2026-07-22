@@ -18,6 +18,9 @@ from .closing_views import (
 from .views import (
     AuditListView,
     CompanyCreateView,
+    CompanyDeliveryLocationCreateView,
+    CompanyDeliveryLocationToggleView,
+    CompanyDeliveryLocationUpdateView,
     CompanyImportDetailView,
     CompanyImportListView,
     CompanyImportMappingView,
@@ -78,6 +81,21 @@ urlpatterns = [
         name="company-import-rollback",
     ),
     path("empresas/<uuid:pk>/editar/", CompanyUpdateView.as_view(), name="company-update"),
+    path(
+        "empresas/<uuid:company_pk>/locais/novo/",
+        CompanyDeliveryLocationCreateView.as_view(),
+        name="company-delivery-location-create",
+    ),
+    path(
+        "empresas/<uuid:company_pk>/locais/<uuid:pk>/editar/",
+        CompanyDeliveryLocationUpdateView.as_view(),
+        name="company-delivery-location-update",
+    ),
+    path(
+        "empresas/<uuid:company_pk>/locais/<uuid:pk>/situacao/",
+        CompanyDeliveryLocationToggleView.as_view(),
+        name="company-delivery-location-toggle",
+    ),
     path(
         "empresas/<uuid:pk>/situacao/",
         CompanyToggleActiveView.as_view(),

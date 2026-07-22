@@ -42,6 +42,16 @@ class CustomerRequestForm(PortalModelForm):
             location_filter
         ).order_by("label")
         self.fields["delivery_location"].empty_label = "Selecione um local cadastrado"
+        active_locations = list(
+            CustomerDeliveryLocation.objects.filter(company=company, active=True).order_by("label")
+        )
+        self.no_active_delivery_locations = not active_locations
+        if (
+            not self.is_bound
+            and len(active_locations) == 1
+            and not getattr(self.instance, "delivery_location_id", None)
+        ):
+            self.initial["delivery_location"] = active_locations[0].pk
 
     def clean_delivery_date(self) -> date:
         value = self.cleaned_data["delivery_date"]

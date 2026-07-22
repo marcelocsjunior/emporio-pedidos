@@ -6,6 +6,8 @@ from django import forms
 from django.db.models import Q
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
+from customer_portal.models import CustomerDeliveryLocation
+
 from .company_imports import MAX_FILE_SIZE, SUPPORTED_FIELDS
 from .models import Company, Order, OrderItem, Product
 
@@ -75,6 +77,31 @@ class CompanyForm(OperationalModelForm):
 
     def clean_external_id(self) -> str:
         return self.cleaned_data.get("external_id", "").strip()
+
+
+class CustomerDeliveryLocationForm(OperationalModelForm):
+    class Meta:
+        model = CustomerDeliveryLocation
+        fields = ("label", "address", "city")
+
+    def __init__(self, *args, company, **kwargs):
+        self.company = company
+        super().__init__(*args, **kwargs)
+
+    def clean_label(self) -> str:
+        label = self.cleaned_data["label"].strip()
+        duplicate = CustomerDeliveryLocation.objects.filter(
+            company=self.company, label__iexact=label
+        ).exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise forms.ValidationError("Já existe um local com esta identificação para a empresa.")
+        return label
+
+    def clean_address(self) -> str:
+        return self.cleaned_data["address"].strip()
+
+    def clean_city(self) -> str:
+        return self.cleaned_data.get("city", "").strip()
 
 
 class CompanyImportUploadForm(forms.Form):

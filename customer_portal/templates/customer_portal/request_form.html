@@ -16,6 +16,9 @@
   {{ form.creation_key }}
   {% for error in form.creation_key.errors %}<div class="form-errors">{{ error }}</div>{% endfor %}
   {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+  {% if form.no_active_delivery_locations %}
+    <div class="message warning">Nenhum local de entrega está cadastrado para esta empresa. Solicite ao Atendimento o cadastro antes de continuar.</div>
+  {% endif %}
 
   <section class="panel form-panel">
     <div class="panel-heading"><div><div class="eyebrow">Entrega</div><h2>Dados da solicitação</h2></div></div>

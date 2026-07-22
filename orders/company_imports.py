@@ -13,7 +13,9 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Company, CompanyImportBatch, CompanyImportItem
+from customer_portal.models import CustomerDeliveryLocation
+
+from .models import AuditEvent, Company, CompanyImportBatch, CompanyImportItem
 from .services import record_audit
 
 MAX_FILE_SIZE = 2 * 1024 * 1024
@@ -37,7 +39,15 @@ SUPPORTED_FIELDS = (
     "source_system",
     "external_id",
     "notes",
+    "delivery_location_label",
+    "delivery_location_address",
+    "delivery_location_city",
 )
+DELIVERY_LOCATION_FIELDS = {
+    "delivery_location_label",
+    "delivery_location_address",
+    "delivery_location_city",
+}
 
 
 class ImportFileError(ValueError):
@@ -193,6 +203,18 @@ def _mapped(row: dict[str, str], mapping: dict[str, str]) -> dict[str, str]:
     return {target: row.get(source, "").strip() for source, target in mapping.items()}
 
 
+def _split_values(values: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
+    company_values = {
+        key: value for key, value in values.items() if key not in DELIVERY_LOCATION_FIELDS
+    }
+    location_values = {
+        "label": values.get("delivery_location_label", ""),
+        "address": values.get("delivery_location_address", ""),
+        "city": values.get("delivery_location_city", ""),
+    }
+    return company_values, location_values
+
+
 def preview_rows(parsed: ParsedFile, mapping: dict[str, str]) -> list[PreviewRow]:
     mapping = validate_mapping(mapping, parsed.headers)
     seen_documents: set[str] = set()
@@ -203,12 +225,25 @@ def preview_rows(parsed: ParsedFile, mapping: dict[str, str]) -> list[PreviewRow
         if not any(values.values()):
             previews.append(PreviewRow(number, "ignored", "Registro vazio.", values))
             continue
-        company = Company(**values)
+        company_values, location_values = _split_values(values)
+        company = Company(**company_values)
         reason = ""
         status = "valid"
         try:
             company.full_clean(validate_unique=False, validate_constraints=False)
             validate_email(company.email) if company.email else None
+            has_location_data = any(location_values.values())
+            has_required_location_data = bool(
+                location_values["label"] and location_values["address"]
+            )
+            if has_location_data and not has_required_location_data:
+                raise ValidationError(
+                    "Para importar um local de entrega, preencha identificação e endereço. "
+                    "A cidade é opcional, mas não pode ser informada isoladamente."
+                )
+            if has_required_location_data:
+                location = CustomerDeliveryLocation(**location_values)
+                location.clean_fields(exclude=("company", "active"))
         except ValidationError as exc:
             messages = exc.messages
             reason = "; ".join(dict.fromkeys(messages))[:500]
@@ -281,12 +316,27 @@ def execute_import(batch: CompanyImportBatch, parsed: ParsedFile, actor) -> int:
             if locked.status != CompanyImportBatch.Status.PREVIEWED or locked.imported_count:
                 raise ImportFileError("Este lote não está disponível para execução.")
             for row in valid:
-                company = Company(**row.values)
+                company_values, location_values = _split_values(row.values)
+                company = Company(**company_values)
                 company.full_clean()
                 company.save()
                 CompanyImportItem.objects.create(
                     batch=locked, company=company, source_row=row.number
                 )
+                if location_values["label"] and location_values["address"]:
+                    location = CustomerDeliveryLocation(company=company, **location_values)
+                    location.full_clean()
+                    location.save()
+                    record_audit(
+                        actor=actor,
+                        action="company_import.delivery_location_created",
+                        entity=location,
+                        payload={
+                            "batch_id": str(locked.pk),
+                            "company_id": str(company.pk),
+                            "source_row": row.number,
+                        },
+                    )
             locked.imported_count = len(valid)
             locked.executed_at = timezone.now()
             locked.status = CompanyImportBatch.Status.COMPLETED
@@ -315,13 +365,38 @@ def execute_import(batch: CompanyImportBatch, parsed: ParsedFile, actor) -> int:
 
 
 def rollback_batch(batch: CompanyImportBatch, actor) -> int:
+    blocked_message = ""
+    count = 0
     with transaction.atomic():
         locked = CompanyImportBatch.objects.select_for_update().get(pk=batch.pk)
+        allowed_statuses = {
+            CompanyImportBatch.Status.COMPLETED,
+            CompanyImportBatch.Status.ROLLBACK_BLOCKED,
+        }
+        if locked.status not in allowed_statuses:
+            raise ImportFileError("Este lote não está disponível para rollback.")
         companies = [item.company for item in locked.items.select_related("company")]
+        imported_location_ids = set(
+            AuditEvent.objects.filter(
+                action="company_import.delivery_location_created",
+                payload__batch_id=str(locked.pk),
+            ).values_list("entity_id", flat=True)
+        )
         blocked = [
-            company for company in companies if company.orders.exists() or company.closings.exists()
+            company
+            for company in companies
+            if (
+                company.orders.exists()
+                or company.closings.exists()
+                or company.customer_order_requests.exists()
+                or company.portal_accesses.exists()
+                or company.portal_access_requests.exists()
+                or company.customer_delivery_locations.exclude(
+                    pk__in=imported_location_ids
+                ).exists()
+            )
         ]
-        if locked.status != CompanyImportBatch.Status.COMPLETED or blocked:
+        if blocked:
             locked.status = CompanyImportBatch.Status.ROLLBACK_BLOCKED
             locked.final_message = "Rollback bloqueado por status ou vínculo operacional."
             locked.save(update_fields=("status", "final_message"))
@@ -331,19 +406,27 @@ def rollback_batch(batch: CompanyImportBatch, actor) -> int:
                 entity=locked,
                 payload={"blocked_count": len(blocked)},
             )
-            raise ImportFileError(locked.final_message)
-        count = len(companies)
-        locked.items.all().delete()
-        Company.objects.filter(pk__in=[company.pk for company in companies]).delete()
-        locked.status = CompanyImportBatch.Status.ROLLED_BACK
-        locked.rollback_by = actor
-        locked.rollback_at = timezone.now()
-        locked.final_message = f"Rollback concluído para {count} cliente(s)."
-        locked.save()
-        record_audit(
-            actor=actor,
-            action="company_import.rolled_back",
-            entity=locked,
-            payload={"removed": count},
-        )
-        return count
+            blocked_message = locked.final_message
+        else:
+            count = len(companies)
+            CustomerDeliveryLocation.objects.filter(
+                pk__in=imported_location_ids,
+                company__in=companies,
+            ).delete()
+            locked.items.all().delete()
+            for company in companies:
+                company.delete()
+            locked.status = CompanyImportBatch.Status.ROLLED_BACK
+            locked.rollback_by = actor
+            locked.rollback_at = timezone.now()
+            locked.final_message = f"Rollback concluído para {count} cliente(s)."
+            locked.save()
+            record_audit(
+                actor=actor,
+                action="company_import.rolled_back",
+                entity=locked,
+                payload={"removed": count, "locations_removed": len(imported_location_ids)},
+            )
+    if blocked_message:
+        raise ImportFileError(blocked_message)
+    return count
