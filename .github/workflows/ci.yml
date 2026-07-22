@@ -74,6 +74,7 @@ jobs:
           sudo install -d -m 700 /opt/emporio-pedidos-producao
           sudo cp -a "$GITHUB_WORKSPACE" /opt/emporio-pedidos-producao/app
           sudo chown -R "$USER:$USER" /opt/emporio-pedidos-producao
+          git -C /opt/emporio-pedidos-producao/app remote set-url origin https://github.com/marcelocsjunior/emporio-pedidos.git
           git -C /opt/emporio-pedidos-producao/app update-ref refs/remotes/origin/main "$GITHUB_SHA"
           install -d -m 700 /opt/emporio-pedidos-producao/runtime
           secret=$(openssl rand -hex 48)
