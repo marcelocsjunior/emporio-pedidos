@@ -15,6 +15,7 @@ from .closing_views import (
     ClosingRecalculateView,
     ClosingStatusUpdateView,
 )
+from .notification_views import AttendanceNotificationUpdatesView
 from .views import (
     AuditListView,
     CompanyCreateView,
@@ -41,6 +42,11 @@ from .views import (
 )
 
 urlpatterns = [
+    path(
+        "notificacoes-internas/atualizacoes/",
+        AttendanceNotificationUpdatesView.as_view(),
+        name="attendance-notification-updates",
+    ),
     path("", OperationalDashboardView.as_view(), name="dashboard"),
     path(
         "assistente-operacional/atualizacoes/",

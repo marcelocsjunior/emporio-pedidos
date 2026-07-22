@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.roles import ROLE_ATTENDANCE, ensure_roles
+from accounts.roles import ROLE_COMMERCIAL, ensure_roles
 from customer_portal.models import (
     CustomerDeliveryLocation,
     CustomerOrderRequest,
@@ -33,7 +33,7 @@ def test_review_state_and_http_approval_are_controlled(client):
     customer = User.objects.create_user(username="workflow_cliente", password="Senha123forte")
     reviewer = User.objects.create_user(username="workflow_atendimento", password="Senha123forte")
     CustomerPortalAccess.objects.create(user=customer, company=company)
-    reviewer.groups.add(ensure_roles()[ROLE_ATTENDANCE])
+    reviewer.groups.add(ensure_roles()[ROLE_COMMERCIAL])
 
     customer_request = CustomerOrderRequest.objects.create(
         creation_key="workflow-request-key",

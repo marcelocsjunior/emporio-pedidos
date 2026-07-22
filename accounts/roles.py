@@ -119,6 +119,7 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
         ("intelligence", "view_ai_delay"),
         ("intelligence", "view_ai_duplicate"),
     },
+    ROLE_MANAGEMENT: set(),
     ROLE_PRODUCTION: {
         *ORDER_READ,
         *_model_permissions("orders", "order", ("change",)),
@@ -144,11 +145,39 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
     ROLE_SUPPORT: set(),
     # Os novos perfis oficiais ficam selecionáveis sem receber privilégios
     # implícitos. A matriz poderá ser definida separadamente pelo produto.
-    ROLE_MANAGEMENT: set(),
     ROLE_COMMERCIAL: set(),
     ROLE_OPERATIONAL: set(),
     ROLE_STOCK: set(),
     ROLE_OFFICIAL_SUPPORT: set(),
+}
+
+# As permissões Django acompanham os modelos alcançados pela matriz; a decisão de
+# acesso continua exclusivamente nas capabilities da aplicação.
+ROLE_PERMISSION_MAP[ROLE_MANAGEMENT] = {
+    spec
+    for spec in ROLE_PERMISSION_MAP[ROLE_ADMIN]
+    if spec[0] != "accounts" and not spec[1].startswith("delete_")
+}
+ROLE_PERMISSION_MAP[ROLE_COMMERCIAL] = {
+    *_model_permissions("orders", "company", ("add", "change", "view")),
+    *_model_permissions("orders", "order", ("add", "change", "view")),
+    *_model_permissions("orders", "orderitem", ("add", "change", "view")),
+    *PORTAL_REVIEW,
+}
+ROLE_PERMISSION_MAP[ROLE_OPERATIONAL] = {
+    *ORDER_READ,
+    *_model_permissions("orders", "order", ("change",)),
+    *_model_permissions("orders", "orderstatushistory", ("add",)),
+    *_model_permissions("customer_portal", "customerorderrequest", ("view",)),
+}
+ROLE_PERMISSION_MAP[ROLE_STOCK] = {
+    *ORDER_READ,
+    *_model_permissions("orders", "product", ("add", "change", "view")),
+}
+ROLE_PERMISSION_MAP[ROLE_OFFICIAL_SUPPORT] = {
+    *ORDER_READ,
+    *_model_permissions("orders", "auditevent", ("view",)),
+    *_model_permissions("customer_portal", "customerorderrequest", ("view",)),
 }
 
 # O Administrador do Sistema recebe as permissões funcionais do perfil mais amplo,

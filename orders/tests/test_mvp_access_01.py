@@ -56,8 +56,8 @@ class OrderAccessMVPTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.PENDING)
 
-    def test_director_and_attendant_cancel_with_reason_and_audit(self):
-        for actor in (self.director, self.attendant):
+    def test_director_cancels_with_reason_and_attendant_is_denied(self):
+        for actor in (self.director,):
             order = self.make_order()
             self.client.force_login(actor)
             response = self.client.post(
@@ -77,38 +77,31 @@ class OrderAccessMVPTests(TestCase):
                     payload__reason="Solicitação operacional",
                 ).exists()
             )
+        denied_order = self.make_order()
+        self.client.force_login(self.attendant)
+        denied = self.client.post(
+            reverse("order-status-update", args=(denied_order.pk,)),
+            {"new_status": Order.Status.CANCELLED, "reason": "Tentativa sem privilégio"},
+        )
+        self.assertEqual(denied.status_code, 403)
 
-    def test_attendant_cannot_edit_order_by_direct_url(self):
+    def test_attendant_can_edit_order_by_direct_url(self):
         order = self.make_order()
         self.client.force_login(self.attendant)
         response = self.client.get(reverse("order-update", args=(order.pk,)))
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
 
         detail = self.client.get(reverse("order-detail", args=(order.pk,)))
         self.assertEqual(detail.status_code, 200)
-        self.assertNotContains(detail, reverse("order-update", args=(order.pk,)))
+        self.assertContains(detail, reverse("order-update", args=(order.pk,)))
 
-    def test_attendant_manipulated_post_does_not_change_structural_data(self):
+    def test_attendant_can_change_structural_data_with_approved_edit_capability(self):
         order = self.make_order()
-        original_company = order.company
         other_company = Company.objects.create(name="Outro cliente de teste")
         other_product = Product.objects.create(
             name="Outro produto de teste", unit_price=Decimal("99.00")
         )
         item = order.items.get()
-        original = {
-            "company_id": order.company_id,
-            "order_date": order.order_date,
-            "delivery_date": order.delivery_date,
-            "delivery_time": order.delivery_time,
-            "delivery_location": order.delivery_location,
-            "notes": order.notes,
-            "product_id": item.product_id,
-            "quantity": item.quantity,
-            "unit_price": item.unit_price,
-            "total_amount": order.total_amount,
-        }
-
         self.client.force_login(self.attendant)
         response = self.client.post(
             reverse("order-update", args=(order.pk,)),
@@ -129,21 +122,14 @@ class OrderAccessMVPTests(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 302)
         order.refresh_from_db()
         item.refresh_from_db()
-        self.assertEqual(order.company, original_company)
-        self.assertEqual(order.company_id, original["company_id"])
-        self.assertEqual(order.order_date, original["order_date"])
-        self.assertEqual(order.delivery_date, original["delivery_date"])
-        self.assertEqual(order.delivery_time, original["delivery_time"])
-        self.assertEqual(order.delivery_location, original["delivery_location"])
-        self.assertEqual(order.notes, original["notes"])
-        self.assertEqual(item.product_id, original["product_id"])
-        self.assertEqual(item.quantity, original["quantity"])
-        self.assertEqual(item.unit_price, original["unit_price"])
-        self.assertEqual(order.total_amount, original["total_amount"])
-        self.assertFalse(
+        self.assertEqual(order.company_id, other_company.pk)
+        self.assertEqual(order.delivery_location, "Local manipulado")
+        self.assertEqual(item.product_id, other_product.pk)
+        self.assertEqual(item.quantity, 999)
+        self.assertTrue(
             AuditEvent.objects.filter(action="order.updated", entity_id=str(order.pk)).exists()
         )
 
@@ -154,7 +140,7 @@ class OrderAccessMVPTests(TestCase):
             reverse("order-status-update", args=(order.pk,)),
             {"new_status": Order.Status.CANCELLED},
         )
-        self.assertRedirects(response, reverse("order-detail", args=(order.pk,)))
+        self.assertEqual(response.status_code, 403)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.PENDING)
         self.assertFalse(

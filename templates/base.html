@@ -30,6 +30,25 @@
           {% if can_access_intelligence %}<a href="{% url 'intelligence:central' %}">Central Inteligente</a>{% endif %}
         </nav>
 
+        {% if can_receive_internal_notifications %}
+          <details class="notification-center" data-notification-center data-endpoint="{% url 'attendance-notification-updates' %}">
+            <summary aria-label="Abrir notificações">
+              <span aria-hidden="true">🔔</span>
+              <span class="notification-count" data-notification-count hidden>0</span>
+            </summary>
+            <section class="notification-panel" aria-label="Notificações internas">
+              <div class="notification-heading">
+                <strong>Notificações</strong>
+                <button type="button" class="notification-sound" data-sound-toggle>Ativar som</button>
+              </div>
+              <div class="notification-list" data-notification-list aria-live="polite">
+                <p class="notification-empty">Nenhuma notificação recente.</p>
+              </div>
+              <button type="button" class="notification-ack" data-notification-ack>Marcar como visualizadas</button>
+            </section>
+          </details>
+        {% endif %}
+
         <div class="header-actions header-actions-desktop">
           {% if can_manage_companies or can_view_audit or can_manage_users or can_manage_attendants or can_access_technical_area %}
             <details class="header-menu">
@@ -109,6 +128,7 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  {% if user.is_authenticated %}<script src="{% static 'js/attendance_notifications.js' %}" defer></script>{% endif %}
   {% block extra_scripts %}{% endblock %}
 </body>
 </html>
