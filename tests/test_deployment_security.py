@@ -99,7 +99,15 @@ def test_public_http_validation_accepts_configured_host(tmp_path: Path):
 
 def test_public_http_validation_rejects_invalid_hosts(tmp_path: Path):
     env_file = tmp_path / "env"
-    invalid_hosts = ["", "*", "host?name", "bad host", "https://example.com", "example.com/path", "example.com:8850"]
+    invalid_hosts = [
+        "",
+        "*",
+        "host?name",
+        "bad host",
+        "https://example.com",
+        "example.com/path",
+        "example.com:8850",
+    ]
     for public_host in invalid_hosts:
         env_file.write_text(public_http_env(public_host))
         result = bash(f'source "{COMMON}"; ENV_FILE="{env_file}"; validate_public_http')
@@ -109,7 +117,9 @@ def test_public_http_validation_rejects_invalid_hosts(tmp_path: Path):
 
 def test_public_http_validation_requires_host_in_django_security_settings(tmp_path: Path):
     env_file = tmp_path / "env"
-    env_file.write_text(public_http_env().replace("203.0.113.25,localhost", "example.com,localhost"))
+    env_file.write_text(
+        public_http_env().replace("203.0.113.25,localhost", "example.com,localhost")
+    )
     hosts = bash(f'source "{COMMON}"; ENV_FILE="{env_file}"; validate_public_http')
     assert hosts.returncode != 0 and "ALLOWED_HOSTS_INVALID" in hosts.stderr
 

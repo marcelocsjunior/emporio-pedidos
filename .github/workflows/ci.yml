@@ -95,6 +95,7 @@ jobs:
           host_id=$(hostname -s)
           printf '%s\n' \
             "DEPLOY_HOST_ID=$host_id" \
+            "APP_PUBLIC_HOST=149.28.115.193" \
             "DJANGO_SECRET_KEY=$secret" \
             "DJANGO_DEBUG=0" \
             "DJANGO_ALLOWED_HOSTS=149.28.115.193,localhost,127.0.0.1" \
