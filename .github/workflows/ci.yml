@@ -159,14 +159,15 @@ jobs:
           ops/vps-deploy.sh --sha "$broken_sha" > /tmp/auto-rollback.out 2>&1
           deploy_status=$?
           set -e
+          sed -E 's/((PASSWORD|SECRET|TOKEN|KEY|COOKIE|SESSION)[^ =:]*)[=:][^ ]+/\1=[REDACTED]/Ig' /tmp/auto-rollback.out
           test "$deploy_status" -ne 0
-          grep -q 'AUTO_ROLLBACK=SUCCESS' /tmp/auto-rollback.out
-          grep -q 'DEPLOY_RESULT=FAILED_APPLICATION_RESTORED' /tmp/auto-rollback.out
-          test "$(sed -n 's/^ACTIVE_SHA=//p' /opt/emporio-pedidos-producao/runtime/state/active.env)" = "$previous_sha"
-          test "$(docker inspect --format '{{.Config.Image}}' emporio_pedidos_producao-web-1)" = "$previous_image"
-          test "$(docker inspect --format '{{.Config.Image}}' emporio_pedidos_producao-worker-1)" = "$previous_image"
-          test "$(docker inspect --format '{{.State.Health.Status}}' emporio_pedidos_producao-db-1)" = "$db_before"
-          test "$(docker volume inspect --format '{{.Name}}' emporio_pedidos_producao_pgdata)" = "$volume_before"
+          grep -q 'AUTO_ROLLBACK=SUCCESS' /tmp/auto-rollback.out || { echo AUTO_ROLLBACK_ASSERTION_FAILED; exit 1; }
+          grep -q 'DEPLOY_RESULT=FAILED_APPLICATION_RESTORED' /tmp/auto-rollback.out || { echo DEPLOY_RESULT_ASSERTION_FAILED; exit 1; }
+          test "$(sed -n 's/^ACTIVE_SHA=//p' /opt/emporio-pedidos-producao/runtime/state/active.env)" = "$previous_sha" || { echo ACTIVE_SHA_ASSERTION_FAILED; exit 1; }
+          test "$(docker inspect --format '{{.Config.Image}}' emporio_pedidos_producao-web-1)" = "$previous_image" || { echo WEB_IMAGE_ASSERTION_FAILED; exit 1; }
+          test "$(docker inspect --format '{{.Config.Image}}' emporio_pedidos_producao-worker-1)" = "$previous_image" || { echo WORKER_IMAGE_ASSERTION_FAILED; exit 1; }
+          test "$(docker inspect --format '{{.State.Health.Status}}' emporio_pedidos_producao-db-1)" = "$db_before" || { echo DB_HEALTH_ASSERTION_FAILED; exit 1; }
+          test "$(docker volume inspect --format '{{.Name}}' emporio_pedidos_producao_pgdata)" = "$volume_before" || { echo VOLUME_ASSERTION_FAILED; exit 1; }
           for check in $(seq 1 10); do curl --fail --silent http://127.0.0.1:8850/health/ >/dev/null; done
           curl --fail --silent http://127.0.0.1:8850/conta/entrar/ >/dev/null
           test "$(docker inspect --format '{{.RestartCount}}' emporio_pedidos_producao-web-1)" -eq 0
