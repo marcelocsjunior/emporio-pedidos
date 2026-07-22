@@ -9,10 +9,6 @@ from accounts.access import Capability, is_root_system_admin, user_has_capabilit
 from accounts.roles import (
     ROLE_ADMIN,
     ROLE_ATTENDANCE,
-    ROLE_EXPEDITION,
-    ROLE_FINANCE,
-    ROLE_PRODUCTION,
-    ROLE_SUPPORT,
     ROLE_SYSTEM_ADMIN,
     ensure_roles,
 )
@@ -90,7 +86,7 @@ class RootAndSystemAdministrationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("admin:login"), response.url)
 
-    def test_root_creates_system_admin_with_safe_django_flags(self):
+    def test_root_cannot_create_non_official_system_admin_profile(self):
         self.client.force_login(self.root)
         response = self.client.post(
             reverse("user-access-create"),
@@ -103,13 +99,8 @@ class RootAndSystemAdministrationTests(TestCase):
                 "initial_password": "safe-initial-password",
             },
         )
-        self.assertRedirects(response, reverse("user-access-list"))
-        created = User.objects.get(username="new-system-admin")
-        self.assertEqual(list(created.groups.values_list("name", flat=True)), [ROLE_SYSTEM_ADMIN])
-        self.assertFalse(created.is_staff)
-        self.assertFalse(created.is_superuser)
-        self.assertTrue(created.must_change_password)
-        self.assertTrue(AuditEvent.objects.filter(action="system_admin.created").exists())
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="new-system-admin").exists())
 
     def test_root_edits_suspends_and_reactivates_system_admin(self):
         self.client.force_login(self.root)
@@ -139,14 +130,9 @@ class RootAndSystemAdministrationTests(TestCase):
 
     def test_system_admin_creates_every_lower_profile(self):
         self.client.force_login(self.system_admin)
-        lower_roles = (
-            ROLE_ADMIN,
-            ROLE_ATTENDANCE,
-            ROLE_SUPPORT,
-            ROLE_PRODUCTION,
-            ROLE_EXPEDITION,
-            ROLE_FINANCE,
-        )
+        from accounts.roles import OFFICIAL_ROLE_NAMES
+
+        lower_roles = OFFICIAL_ROLE_NAMES
         for index, role in enumerate(lower_roles):
             response = self.client.post(
                 reverse("user-access-create"),

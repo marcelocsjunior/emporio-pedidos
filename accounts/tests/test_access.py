@@ -3,7 +3,16 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import User
-from accounts.roles import ROLE_NAMES, ROLE_SUPPORT, ensure_roles
+from accounts.roles import (
+    ROLE_COMMERCIAL,
+    ROLE_MANAGEMENT,
+    ROLE_NAMES,
+    ROLE_OFFICIAL_SUPPORT,
+    ROLE_OPERATIONAL,
+    ROLE_STOCK,
+    ROLE_SUPPORT,
+    ensure_roles,
+)
 
 
 class RolesAndAuthenticationTests(TestCase):
@@ -17,9 +26,23 @@ class RolesAndAuthenticationTests(TestCase):
             first_counts,
             {name: group.permissions.count() for name, group in second.items()},
         )
-        self.assertEqual(first_counts[ROLE_SUPPORT], 0)
+        roles_without_permission_matrix = {
+            ROLE_SUPPORT,
+            ROLE_MANAGEMENT,
+            ROLE_COMMERCIAL,
+            ROLE_OPERATIONAL,
+            ROLE_STOCK,
+            ROLE_OFFICIAL_SUPPORT,
+        }
         self.assertTrue(
-            all(count > 0 for role, count in first_counts.items() if role != ROLE_SUPPORT)
+            all(first_counts[role] == 0 for role in roles_without_permission_matrix)
+        )
+        self.assertTrue(
+            all(
+                count > 0
+                for role, count in first_counts.items()
+                if role not in roles_without_permission_matrix
+            )
         )
 
     def test_anonymous_user_is_redirected_to_login(self):

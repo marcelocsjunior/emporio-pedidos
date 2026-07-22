@@ -89,7 +89,13 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
         allowed = roles_actor_can_assign(actor)
         self.fields["role"].choices = ((role, role) for role in allowed)
         if self.instance.pk:
-            self.fields["role"].initial = user_role(self.instance)
+            current_role = user_role(self.instance)
+            self.fields["role"].initial = current_role
+            if current_role and current_role not in allowed:
+                self.fields["role"].choices = (
+                    *self.fields["role"].choices,
+                    (current_role, current_role),
+                )
             if self.instance.username == ROOT_USERNAME:
                 self.fields["username"].disabled = True
                 self.fields["role"].disabled = True
@@ -133,7 +139,14 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
             and self.instance.pk == self.actor.pk
             and is_root_system_admin(self.actor)
         )
-        if not editing_own_root and role not in roles_actor_can_assign(self.actor):
+        preserving_legacy_role = bool(
+            self.instance.pk and role == user_role(self.instance)
+        )
+        if (
+            not editing_own_root
+            and not preserving_legacy_role
+            and role not in roles_actor_can_assign(self.actor)
+        ):
             raise ValidationError("Perfil fora do escopo autorizado.")
         if self.instance.pk and self.instance.username == ROOT_USERNAME:
             if self.data.get("username", ROOT_USERNAME) != ROOT_USERNAME:
