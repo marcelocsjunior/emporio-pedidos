@@ -69,6 +69,19 @@ jobs:
           pytest -q tests/test_deployment_package.py
           bash -n ops/vps-*.sh
           test "$(find ops -maxdepth 1 -name 'vps-*.sh' ! -perm -u+x | wc -l)" -eq 0
+      - name: Validate non-root image ownership with restrictive context
+        run: |
+          set -Eeuo pipefail
+          context=$(mktemp -d)
+          cp -a . "$context/app"
+          find "$context/app" -type f -exec chmod 600 {} +
+          image="emporio-pedidos-perm-test:${GITHUB_SHA}"
+          docker build --build-arg APP_REVISION="$GITHUB_SHA" -t "$image" "$context/app"
+          test "$(docker image inspect --format '{{.Config.User}}' "$image")" = app
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" = "$GITHUB_SHA"
+          docker run --rm "$image" sh -c 'test "$(id -u)" -ne 0; test "$(id -un)" = app; test -r /app/manage.py; python -c "import config.settings, config.wsgi"; python manage.py check; test -r /app/staticfiles/css/app.css; stat -c "%U:%G" /app/manage.py | grep -q "app:app"'
+          docker image rm "$image" >/dev/null
+          rm -rf "$context"
       - name: Prepare synthetic environment
         run: |
           sudo install -d -m 700 /opt/emporio-pedidos-producao
