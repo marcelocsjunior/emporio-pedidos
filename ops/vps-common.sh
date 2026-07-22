@@ -125,14 +125,19 @@ validate_public_http() {
   [[ $(env_value APP_PORT) == 8850 ]] || die "PUBLIC_HTTP_PORT_INVALID"
   [[ $(env_value APP_BIND_HOST) == 0.0.0.0 ]] || die "PUBLIC_HTTP_BIND_INVALID"
   [[ $(env_value DJANGO_DEBUG) == 0 ]] || die "DEBUG_MUST_BE_ZERO"
-  local hosts origins
+  local public_host hosts origins public_url
+  public_host=$(env_value APP_PUBLIC_HOST)
+  [[ -n $public_host && $public_host != *'*'* && $public_host != *'?'* && $public_host != *[[:space:]]* ]] || die "APP_PUBLIC_HOST_INVALID"
+  [[ $public_host != *'://'* && $public_host != *'/'* && $public_host != *':'* ]] || die "APP_PUBLIC_HOST_INVALID"
+  [[ $public_host =~ ^[A-Za-z0-9.-]+$ ]] || die "APP_PUBLIC_HOST_INVALID"
+  public_url="http://${public_host}:8850"
   hosts=$(env_value DJANGO_ALLOWED_HOSTS); origins=$(env_value DJANGO_CSRF_TRUSTED_ORIGINS)
-  [[ $hosts != *'*'* && ",$hosts," == *",149.28.115.193,"* ]] || die "ALLOWED_HOSTS_INVALID"
-  [[ $origins == http://149.28.115.193:8850 ]] || die "CSRF_TRUSTED_ORIGINS_INVALID"
+  [[ $hosts != *'*'* && ",$hosts," == *",$public_host,"* ]] || die "ALLOWED_HOSTS_INVALID"
+  [[ $origins == "$public_url" ]] || die "CSRF_TRUSTED_ORIGINS_INVALID"
   [[ $(env_value DJANGO_SESSION_COOKIE_SECURE) == 0 ]] || die "SESSION_COOKIE_MODE_INVALID"
   [[ $(env_value DJANGO_CSRF_COOKIE_SECURE) == 0 ]] || die "CSRF_COOKIE_MODE_INVALID"
   info "PUBLIC_HTTP_MODE=ENABLED"
-  info "PUBLIC_URL=http://149.28.115.193:8850"
+  info "PUBLIC_URL=$public_url"
   info "CSRF=ENABLED DEBUG=0"
 }
 

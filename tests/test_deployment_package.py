@@ -102,9 +102,21 @@ def test_backup_and_rollback_safety_contracts():
 
 def test_environment_template_has_no_real_secrets():
     env = read("deploy/env.vps.example")
+    assert "APP_PUBLIC_HOST=vps.example.com" in env
+    assert "DJANGO_ALLOWED_HOSTS=vps.example.com,localhost,127.0.0.1" in env
+    assert "DJANGO_CSRF_TRUSTED_ORIGINS=http://vps.example.com:8850" in env
     assert "APP_PORT=8850" in env
     assert "AI_ENABLED=0" in env
     assert not re.search(r"(?i)(password|secret)=((?!generate-|set-by-).)+", env)
+
+
+def test_deployment_package_has_no_fixed_legacy_public_ip():
+    paths = [
+        ROOT / "deploy/env.vps.example",
+        ROOT / "docs/DEPLOY_VPS_8850.md",
+        *SCRIPTS,
+    ]
+    assert all("149.28.115.193" not in read(path) for path in paths)
 
 
 def test_scripts_do_not_log_environment_contents_or_password_arguments():

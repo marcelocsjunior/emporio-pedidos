@@ -4,7 +4,7 @@ Este pacote prepara uma implantação PostgreSQL autônoma do Empório Pedidos, 
 
 ## Acesso HTTP público temporário
 
-A URL autorizada nesta fase é `http://149.28.115.193:8850`, exposta diretamente por IP público e sem TLS. Credenciais e sessão trafegam sem criptografia: use uma credencial exclusiva e nunca reaproveite senha. `DEBUG` e IA permanecem desligados, e CSRF permanece integralmente ativo.
+A URL autorizada nesta fase é `http://${APP_PUBLIC_HOST}:8850`, exposta diretamente pelo host público da VPS ou VM e sem TLS. Credenciais e sessão trafegam sem criptografia: use uma credencial exclusiva e nunca reaproveite senha. `DEBUG` e IA permanecem desligados, e CSRF permanece integralmente ativo.
 
 O arquivo de ambiente explicita temporariamente `DJANGO_SESSION_COOKIE_SECURE=0` e `DJANGO_CSRF_COOKIE_SECURE=0`; isso permite login em HTTP, mas reduz a proteção de transporte dos cookies. Não use `DEBUG=1` como solução.
 
@@ -30,9 +30,9 @@ sudo install -m 600 deploy/env.vps.example /opt/emporio-pedidos-producao/runtime
 sudoedit /opt/emporio-pedidos-producao/runtime/.env
 ```
 
-Substitua todos os exemplos por segredos novos e exclusivos. Preserve `APP_PORT=8850`, o projeto e o volume definidos. IA e ações externas permanecem desligadas por padrão.
+Substitua todos os exemplos por segredos novos e exclusivos. Defina `APP_PUBLIC_HOST` somente com o IP ou hostname público, sem protocolo, porta, barra, espaços ou wildcards. Inclua exatamente esse valor em `DJANGO_ALLOWED_HOSTS` e configure `DJANGO_CSRF_TRUSTED_ORIGINS=http://${APP_PUBLIC_HOST}:8850`. Preserve `APP_PORT=8850`, o projeto e o volume definidos. IA e ações externas permanecem desligadas por padrão.
 
-Valide o login manualmente em `http://149.28.115.193:8850/conta/entrar/`, confirme que CSRF continua rejeitando requisições inválidas e encerre a sessão após o teste.
+Valide o login manualmente em `http://${APP_PUBLIC_HOST}:8850/conta/entrar/`, confirme que CSRF continua rejeitando requisições inválidas e encerre a sessão após o teste.
 
 ## Preflight, primeira instalação e atualização
 
