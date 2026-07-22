@@ -180,7 +180,10 @@ run() {
 }
 
 write_evidence() {
-  local name=$1 content=$2 target="$RUNTIME_PATH/evidence/$name"
+  local name content target
+  name=$1
+  content=$2
+  target="$RUNTIME_PATH/evidence/$name"
   [[ $DRY_RUN == 1 ]] && { info "DRY_RUN=evidence:$name"; return; }
   printf '%s\n' "$content" | sanitize >"$target"; chmod 600 "$target"
 }
