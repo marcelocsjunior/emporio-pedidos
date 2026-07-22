@@ -76,6 +76,58 @@ def test_secret_validation_rejects_placeholders_and_weak_values(tmp_path: Path):
     assert weak.returncode != 0
 
 
+def public_http_env(public_host: str = "203.0.113.25") -> str:
+    return (
+        "APP_PORT=8850\n"
+        "APP_BIND_HOST=0.0.0.0\n"
+        "DJANGO_DEBUG=0\n"
+        f"APP_PUBLIC_HOST={public_host}\n"
+        f"DJANGO_ALLOWED_HOSTS={public_host},localhost,127.0.0.1\n"
+        f"DJANGO_CSRF_TRUSTED_ORIGINS=http://{public_host}:8850\n"
+        "DJANGO_SESSION_COOKIE_SECURE=0\n"
+        "DJANGO_CSRF_COOKIE_SECURE=0\n"
+    )
+
+
+def test_public_http_validation_accepts_configured_host(tmp_path: Path):
+    env_file = tmp_path / "env"
+    env_file.write_text(public_http_env())
+    result = bash(f'source "{COMMON}"; ENV_FILE="{env_file}"; validate_public_http')
+    assert result.returncode == 0
+    assert "PUBLIC_URL=http://203.0.113.25:8850" in result.stdout
+
+
+def test_public_http_validation_rejects_invalid_hosts(tmp_path: Path):
+    env_file = tmp_path / "env"
+    invalid_hosts = [
+        "",
+        "*",
+        "host?name",
+        "bad host",
+        "https://example.com",
+        "example.com/path",
+        "example.com:8850",
+    ]
+    for public_host in invalid_hosts:
+        env_file.write_text(public_http_env(public_host))
+        result = bash(f'source "{COMMON}"; ENV_FILE="{env_file}"; validate_public_http')
+        assert result.returncode != 0, public_host
+        assert "APP_PUBLIC_HOST_INVALID" in result.stderr, public_host
+
+
+def test_public_http_validation_requires_host_in_django_security_settings(tmp_path: Path):
+    env_file = tmp_path / "env"
+    env_file.write_text(
+        public_http_env().replace("203.0.113.25,localhost", "example.com,localhost")
+    )
+    hosts = bash(f'source "{COMMON}"; ENV_FILE="{env_file}"; validate_public_http')
+    assert hosts.returncode != 0 and "ALLOWED_HOSTS_INVALID" in hosts.stderr
+
+    env_file.write_text(public_http_env().replace("http://203.0.113.25:8850", "http://example.com:8850"))
+    origins = bash(f'source "{COMMON}"; ENV_FILE="{env_file}"; validate_public_http')
+    assert origins.returncode != 0 and "CSRF_TRUSTED_ORIGINS_INVALID" in origins.stderr
+
+
 def test_worktree_validation_rejects_tracked_and_untracked_changes(tmp_path: Path):
     if shutil.which("git") is None:
         import pytest
