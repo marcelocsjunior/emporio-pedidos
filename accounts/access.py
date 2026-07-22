@@ -7,6 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 
 from .roles import (
+    OFFICIAL_ROLE_NAMES,
     ROLE_ADMIN,
     ROLE_ATTENDANCE,
     ROLE_EXPEDITION,
@@ -318,6 +319,11 @@ ROLE_CAPABILITIES = {
         }
     ),
     ROLE_SUPPORT: frozenset({Capability.ACCESS_TECHNICAL_AREA}),
+    **{
+        role: frozenset()
+        for role in OFFICIAL_ROLE_NAMES
+        if role not in {ROLE_ADMIN, ROLE_ATTENDANCE}
+    },
 }
 
 COMPATIBILITY_PERMISSIONS = {

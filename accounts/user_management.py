@@ -7,6 +7,7 @@ from orders.services import record_audit
 
 from .access import ROOT_USERNAME, Capability, is_root_system_admin, user_has_capability
 from .roles import (
+    OFFICIAL_ROLE_NAMES,
     ROLE_ADMIN,
     ROLE_ATTENDANCE,
     ROLE_EXPEDITION,
@@ -18,12 +19,11 @@ from .roles import (
 
 MANAGED_ROLE_NAMES = (
     ROLE_SYSTEM_ADMIN,
-    ROLE_ADMIN,
-    ROLE_ATTENDANCE,
     ROLE_SUPPORT,
     ROLE_PRODUCTION,
     ROLE_EXPEDITION,
     ROLE_FINANCE,
+    *OFFICIAL_ROLE_NAMES,
 )
 
 VISIBLE_ROLE_NAMES = {
@@ -45,9 +45,23 @@ def user_role(user) -> str | None:
 
 def roles_actor_can_assign(actor) -> tuple[str, ...]:
     if is_root_system_admin(actor):
+        return OFFICIAL_ROLE_NAMES
+    if user_has_capability(actor, Capability.MANAGE_LOWER_USERS):
+        return OFFICIAL_ROLE_NAMES
+    if user_role(actor) == ROLE_ADMIN:
+        return OFFICIAL_ROLE_NAMES
+    if user_has_capability(actor, Capability.MANAGE_ATTENDANTS):
+        return (ROLE_ATTENDANCE,)
+    return ()
+
+
+def roles_actor_can_manage(actor) -> tuple[str, ...]:
+    if is_root_system_admin(actor):
         return MANAGED_ROLE_NAMES
     if user_has_capability(actor, Capability.MANAGE_LOWER_USERS):
         return tuple(role for role in MANAGED_ROLE_NAMES if role != ROLE_SYSTEM_ADMIN)
+    if user_role(actor) == ROLE_ADMIN:
+        return OFFICIAL_ROLE_NAMES
     if user_has_capability(actor, Capability.MANAGE_ATTENDANTS):
         return (ROLE_ATTENDANCE,)
     return ()
@@ -59,7 +73,7 @@ def can_manage_user(actor, target) -> bool:
     target_role = user_role(target)
     if target_role == ROLE_SYSTEM_ADMIN:
         return is_root_system_admin(actor)
-    return target_role in roles_actor_can_assign(actor)
+    return target_role in roles_actor_can_manage(actor)
 
 
 def audit_denied(*, actor, target, action: str, reason: str) -> None:

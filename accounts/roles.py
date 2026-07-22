@@ -6,21 +6,35 @@ from django.contrib.auth.models import Group, Permission
 from django.db import transaction
 
 ROLE_ADMIN = "Administrador"
+ROLE_MANAGEMENT = "Gestão"
 ROLE_SYSTEM_ADMIN = "Administrador do Sistema"
 ROLE_ATTENDANCE = "Atendimento"
+ROLE_COMMERCIAL = "Comercial"
+ROLE_OPERATIONAL = "Operacional"
+ROLE_STOCK = "Estoque"
+ROLE_OFFICIAL_SUPPORT = "Suporte"
 ROLE_PRODUCTION = "Produção"
 ROLE_EXPEDITION = "Expedição"
 ROLE_FINANCE = "Financeiro"
 ROLE_SUPPORT = "Desenvolvimento / Suporte"
 
+OFFICIAL_ROLE_NAMES = (
+    ROLE_ADMIN,
+    ROLE_MANAGEMENT,
+    ROLE_ATTENDANCE,
+    ROLE_COMMERCIAL,
+    ROLE_OPERATIONAL,
+    ROLE_STOCK,
+    ROLE_OFFICIAL_SUPPORT,
+)
+
 ROLE_NAMES = (
     ROLE_SYSTEM_ADMIN,
-    ROLE_ADMIN,
-    ROLE_ATTENDANCE,
     ROLE_PRODUCTION,
     ROLE_EXPEDITION,
     ROLE_FINANCE,
     ROLE_SUPPORT,
+    *OFFICIAL_ROLE_NAMES,
 )
 
 PermissionSpec = tuple[str, str]
@@ -128,6 +142,13 @@ ROLE_PERMISSION_MAP: dict[str, set[PermissionSpec]] = {
         ("intelligence", "view_ai_finance"),
     },
     ROLE_SUPPORT: set(),
+    # Os novos perfis oficiais ficam selecionáveis sem receber privilégios
+    # implícitos. A matriz poderá ser definida separadamente pelo produto.
+    ROLE_MANAGEMENT: set(),
+    ROLE_COMMERCIAL: set(),
+    ROLE_OPERATIONAL: set(),
+    ROLE_STOCK: set(),
+    ROLE_OFFICIAL_SUPPORT: set(),
 }
 
 # O Administrador do Sistema recebe as permissões funcionais do perfil mais amplo,
