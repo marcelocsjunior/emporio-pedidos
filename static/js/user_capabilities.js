@@ -5,26 +5,37 @@
   const defaults = JSON.parse(defaultsNode.textContent);
   const role = form.querySelector("[name=role]");
   const restore = form.querySelector("[name=restore_profile_defaults]");
-  const boxes = [...form.querySelectorAll("[name=capabilities]")];
+  const rows = [...form.querySelectorAll("[data-capability]")];
 
   function profileDefaults() { return new Set(defaults[role.value] || []); }
-  function refreshLabels() {
+  function refresh() {
     const base = profileDefaults();
-    boxes.forEach((box) => {
-      const label = form.querySelector(`[data-capability-state="${box.value}"]`);
-      if (!label) return;
-      if (base.has(box.value)) label.textContent = box.checked ? "Padrão do perfil" : "Removida individualmente";
-      else label.textContent = box.checked ? "Adicionada individualmente" : "Não incluída";
+    rows.forEach((row) => {
+      const inherited = base.has(row.dataset.capability);
+      const selected = row.querySelector("input:checked");
+      const inheritedLabel = row.querySelector("[data-inherited]");
+      const effectiveLabel = row.querySelector("[data-effective]");
+      if (!selected || !inheritedLabel || !effectiveLabel) return;
+      const effective = selected.value === "allow" || (selected.value === "default" && inherited);
+      inheritedLabel.textContent = inherited ? "Herdado: permitido" : "Herdado: não permitido";
+      effectiveLabel.textContent = effective ? "Efetivo: permitido" : "Efetivo: bloqueado";
+      effectiveLabel.classList.toggle("is-allowed", effective);
+      effectiveLabel.classList.toggle("is-denied", !effective);
     });
   }
   function applyDefaults() {
-    const base = profileDefaults();
-    boxes.forEach((box) => { box.checked = base.has(box.value); });
+    rows.forEach((row) => {
+      const defaultRadio = row.querySelector('input[value="default"]');
+      if (defaultRadio) defaultRadio.checked = true;
+    });
     restore.value = "1";
-    refreshLabels();
+    refresh();
   }
-  role.addEventListener("change", applyDefaults);
-  boxes.forEach((box) => box.addEventListener("change", () => { restore.value = ""; refreshLabels(); }));
+  role.addEventListener("change", refresh);
+  form.addEventListener("change", (event) => {
+    if (event.target.matches('[name^="capability_state__"]')) restore.value = "";
+    refresh();
+  });
   form.querySelector("[data-restore-capabilities]").addEventListener("click", applyDefaults);
-  refreshLabels();
+  refresh();
 })();

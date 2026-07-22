@@ -140,6 +140,19 @@ button, input, select { font: inherit; }
 .notification-item time, .notification-empty { color: var(--muted); font-size: 12px; }
 .notification-empty { padding: 18px 14px; margin: 0; text-align: center; }
 .notification-ack { padding: 11px 14px; border-top: 1px solid var(--line); text-align: right; }
+.capability-editor { display: grid; gap: 16px; }
+.capability-editor fieldset { display: grid; gap: 10px; min-width: 0; border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.capability-editor legend { padding: 0 7px; color: var(--green); font-weight: 850; }
+.capability-option { display: grid; grid-template-columns: minmax(190px, 1fr) minmax(300px, 1.4fr); gap: 10px 18px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: #fafbf9; }
+.capability-copy { display: grid; gap: 3px; }
+.capability-copy small { color: var(--muted); }
+.capability-states ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.capability-states label { display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; border: 1px solid #cbd4cf; border-radius: 8px; background: #fff; cursor: pointer; }
+.capability-states .form-control { width: auto; min-height: 0; padding: 0; }
+.capability-result { grid-column: 2; display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 12px; }
+.capability-result strong { color: var(--danger); }
+.capability-result strong.is-allowed { color: #1b6e3f; }
+.capability-result.protected { grid-column: 2; }
 .header-menu > summary {
   list-style: none;
   color: #fff;
@@ -422,6 +435,9 @@ code { font-size: 12px; overflow-wrap: anywhere; }
   .mobile-menu summary { padding: 8px 10px; }
   .mobile-menu-panel { width: min(360px, calc(100vw - 20px)); }
   .notification-panel { position: fixed; top: 70px; right: 10px; width: calc(100vw - 20px); max-height: calc(100vh - 82px); }
+  .capability-option { grid-template-columns: 1fr; }
+  .capability-result, .capability-result.protected { grid-column: 1; }
+  .capability-result { flex-direction: column; gap: 2px; }
   .nav-mobile, .internal-nav-mobile { grid-template-columns: 1fr; gap: 10px; }
   .mobile-menu-section + .mobile-menu-section {
     padding-top: 10px;

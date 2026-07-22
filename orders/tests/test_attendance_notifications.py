@@ -192,3 +192,49 @@ class AttendanceNotificationEndpointTests(TestCase):
         self.assertIn("localStorage", script)
         self.assertIn("AudioContext", script)
         self.assertIn("window.setInterval(poll, 25000)", script)
+
+    def test_rafa_equivalent_accesses_list_detail_bell_and_correction_only(self):
+        self.client.force_login(self.attendant)
+        queue = self.client.get(reverse("customer_portal:request-queue"))
+        detail = self.client.get(
+            reverse("customer_portal:request-review", args=(self.customer_request.pk,))
+        )
+        self.assertEqual(queue.status_code, 200)
+        self.assertEqual(detail.status_code, 200)
+        detail_url = reverse(
+            "customer_portal:request-review", args=(self.customer_request.pk,)
+        )
+        self.assertContains(queue, detail_url)
+        self.assertContains(detail, "Solicitar correção")
+        self.assertNotContains(detail, "Aprovar e criar pedido")
+        self.assertNotContains(detail, "Rejeitar solicitação")
+
+        bell = self.client.get(self.url).json()["events"]
+        request_event = next(item for item in bell if item["type"] == "new_request")
+        self.assertEqual(
+            request_event["url"],
+            reverse("customer_portal:request-review", args=(self.customer_request.pk,)),
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("customer_portal:request-approve", args=(self.customer_request.pk,))
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("customer_portal:request-reject", args=(self.customer_request.pk,)),
+                {"reason": "Não autorizado"},
+            ).status_code,
+            403,
+        )
+        correction = self.client.post(
+            reverse("customer_portal:request-correction", args=(self.customer_request.pk,)),
+            {"reason": "Corrigir dados técnicos do teste"},
+        )
+        self.assertEqual(correction.status_code, 302)
+        self.customer_request.refresh_from_db()
+        self.assertEqual(
+            self.customer_request.status,
+            CustomerOrderRequest.Status.CORRECTION_REQUESTED,
+        )
