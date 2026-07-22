@@ -178,6 +178,19 @@ jobs:
           echo "DATABASE_RESTORE=NAO"
           echo "DATABASE_VOLUME_PRESERVED=SIM"
           echo "APPLICATION_PREVIOUS_SHA_RESTORED=SIM"
+      - name: Behavioral migration risk rollback block
+        run: |
+          cd /opt/emporio-pedidos-producao/app
+          awk '/^deploy_failure\(\)/,/^trap '\''deploy_failure/ { if ($0 !~ /^trap/) print }' ops/vps-deploy.sh > /tmp/deploy-failure-function.sh
+          set +e
+          bash -c 'source ops/vps-common.sh; source /tmp/deploy-failure-function.sh; migration_risk=1; deploy_stage=migration-test; deploy_failure 17' > /tmp/migration-risk.out 2>&1
+          risk_status=$?
+          set -e
+          test "$risk_status" -eq 17
+          grep -q 'AUTO_ROLLBACK=BLOCKED' /tmp/migration-risk.out
+          grep -q 'DB_ROLLBACK_DECISION_REQUIRED=SIM' /tmp/migration-risk.out
+          ! grep -q 'pg_restore\|pg_dump' /tmp/migration-risk.out
+          echo "MIGRATION_RISK_BLOCK_TEST=PASSOU"
       - name: Cleanup ephemeral deployment
         if: always()
         run: |
