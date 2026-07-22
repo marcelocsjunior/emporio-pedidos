@@ -60,14 +60,14 @@
 
 {% if reviewable %}
 <section class="panel form-panel">
-  <div class="panel-heading"><div><div class="eyebrow">Decisão</div><h2>Aprovação obrigatória do Atendimento</h2><p>Aprovar cria o pedido oficial de forma transacional e idempotente.</p></div></div>
+  <div class="panel-heading"><div><div class="eyebrow">Decisão</div><h2>Ações autorizadas</h2><p>As opções abaixo respeitam os acessos efetivos desta conta.</p></div></div>
   <div class="form-actions">
     {% if can_start_review %}<form method="post" action="{% url 'customer_portal:request-start-review' customer_request.pk %}">{% csrf_token %}<button class="button" type="submit">Iniciar análise</button></form>{% endif %}
-    <form method="post" action="{% url 'customer_portal:request-approve' customer_request.pk %}" onsubmit="return confirm('Aprovar e criar o pedido oficial?');">{% csrf_token %}<button class="button primary" type="submit">Aprovar e criar pedido</button></form>
+    {% if can_approve_requests %}<form method="post" action="{% url 'customer_portal:request-approve' customer_request.pk %}" onsubmit="return confirm('Aprovar e criar o pedido oficial?');">{% csrf_token %}<button class="button primary" type="submit">Aprovar e criar pedido</button></form>{% endif %}
   </div>
   <div class="detail-grid">
-    <form method="post" action="{% url 'customer_portal:request-correction' customer_request.pk %}" class="operational-form">{% csrf_token %}<div class="field-group"><label for="id_reason_correction">Correção necessária</label><textarea class="form-control" id="id_reason_correction" name="reason" rows="3" required></textarea></div><button class="button" type="submit">Solicitar correção</button></form>
-    <form method="post" action="{% url 'customer_portal:request-reject' customer_request.pk %}" class="operational-form">{% csrf_token %}<div class="field-group"><label for="id_reason_reject">Motivo da rejeição</label><textarea class="form-control" id="id_reason_reject" name="reason" rows="3" required></textarea></div><button class="button danger-outline" type="submit">Rejeitar solicitação</button></form>
+    {% if can_request_correction %}<form method="post" action="{% url 'customer_portal:request-correction' customer_request.pk %}" class="operational-form">{% csrf_token %}<div class="field-group"><label for="id_reason_correction">Correção necessária</label><textarea class="form-control" id="id_reason_correction" name="reason" rows="3" required></textarea></div><button class="button" type="submit">Solicitar correção</button></form>{% endif %}
+    {% if can_reject_requests %}<form method="post" action="{% url 'customer_portal:request-reject' customer_request.pk %}" class="operational-form">{% csrf_token %}<div class="field-group"><label for="id_reason_reject">Motivo da rejeição</label><textarea class="form-control" id="id_reason_reject" name="reason" rows="3" required></textarea></div><button class="button danger-outline" type="submit">Rejeitar solicitação</button></form>{% endif %}
   </div>
 </section>
 {% endif %}

@@ -38,8 +38,11 @@ User = get_user_model()
 
 
 def _replace_capability_overrides(*, user, form: ManagedUserForm) -> dict[str, list[str]]:
+    if not form.capability_controls_submitted():
+        return {"capabilities_added": [], "capabilities_removed": []}
     allowed, denied = form.capability_deltas()
-    user.capability_overrides.all().delete()
+    managed_values = [capability.value for capability in form.customizable_capabilities]
+    user.capability_overrides.filter(capability__in=managed_values).delete()
     UserCapabilityOverride.objects.bulk_create(
         [
             UserCapabilityOverride(user=user, capability=capability.value, effect=effect)
@@ -58,7 +61,11 @@ def _replace_capability_overrides(*, user, form: ManagedUserForm) -> dict[str, l
 
 
 def _audit_capability_form_denial(*, request, target) -> None:
-    submitted = set(request.POST.getlist("capabilities"))
+    submitted = {
+        key
+        for key in request.POST
+        if key.startswith(ManagedUserForm.CAPABILITY_FIELD_PREFIX)
+    }
     if submitted or "restore_profile_defaults" in request.POST:
         reason = (
             "root_override_forbidden"
@@ -76,35 +83,38 @@ def _audit_capability_form_denial(*, request, target) -> None:
 def _user_form_context(*, form, creating, target=None):
     capability_groups = {}
     role_defaults = {}
-    if "capabilities" in form.fields:
+    if form.customizable_capabilities:
         from .access import CAPABILITY_CATALOG, ROLE_CAPABILITIES
 
         role_defaults = {
             role: [capability.value for capability in capabilities]
             for role, capabilities in ROLE_CAPABILITIES.items()
         }
-        selected_capabilities = set(
-            form.data.getlist("capabilities") if form.is_bound else form["capabilities"].value()
-        )
+        role = form.data.get("role") if form.is_bound else form["role"].value()
+        base = set(ROLE_CAPABILITIES.get(role, ()))
         for item in CAPABILITY_CATALOG:
+            field_name = form.capability_field_name(item.capability)
+            bound_field = form[field_name] if field_name in form.fields else None
+            state = bound_field.value() if bound_field else "protected"
+            inherited = item.capability in base
+            effective = state == "allow" or (state == "default" and inherited)
             capability_groups.setdefault(item.category, []).append(
                 {
                     "value": item.capability.value,
                     "name": item.name,
                     "description": item.description,
-                    "configurable": item.configurable,
-                    "selected": item.capability.value in selected_capabilities,
+                    "field": bound_field,
+                    "state": state,
+                    "inherited": inherited,
+                    "effective": effective,
                 }
             )
-    else:
-        selected_capabilities = set()
     return {
         "form": form,
         "creating": creating,
         "managed_user": target,
         "capability_groups": capability_groups,
         "role_defaults": role_defaults,
-        "selected_capabilities": selected_capabilities,
     }
 
 
@@ -336,7 +346,11 @@ class UserAccessCreateView(CapabilityRequiredMixin, View):
         return redirect("user-access-list")
 
     def _render(self, request, form, creating):
-        return render(request, self.template_name, {"form": form, "creating": creating})
+        return render(
+            request,
+            self.template_name,
+            _user_form_context(form=form, creating=creating),
+        )
 
 
 class UserAccessUpdateView(CapabilityRequiredMixin, View):
@@ -387,11 +401,7 @@ class UserAccessUpdateView(CapabilityRequiredMixin, View):
         # Revalidação feita com a linha bloqueada imediatamente antes da gravação.
         self._authorize(request.user, target)
         user = form.save()
-        deltas = (
-            _replace_capability_overrides(user=user, form=form)
-            if "capabilities" in form.fields
-            else {}
-        )
+        deltas = _replace_capability_overrides(user=user, form=form)
         after_role = display_role(user)
         if user_role(user) == ROLE_SYSTEM_ADMIN:
             action = "system_admin.updated"

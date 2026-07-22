@@ -38,6 +38,10 @@ class InternalOfficialRolesTests(TestCase):
             self.assertEqual(choices, OFFICIAL_ROLE_NAMES)
             for role in OFFICIAL_ROLE_NAMES:
                 self.assertContains(response, f'value="{role}"')
+            self.assertContains(response, "Acessos individuais")
+            self.assertContains(response, "Padrão do perfil")
+            self.assertContains(response, "Permitido")
+            self.assertContains(response, "Bloqueado")
 
     def test_every_official_role_can_be_selected_and_persists_without_escalation(self):
         for index, role in enumerate(OFFICIAL_ROLE_NAMES):

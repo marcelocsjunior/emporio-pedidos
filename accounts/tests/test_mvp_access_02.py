@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 
-from accounts.access import ROLE_CAPABILITIES, Capability, user_has_capability
+from accounts.access import Capability, user_has_capability
 from accounts.models import UserCapabilityOverride
 from accounts.roles import (
     ROLE_ADMIN,
@@ -133,38 +133,43 @@ class IndividualCapabilityTests(TestCase):
                 user=self.attendant, capability="auth.change_permission", effect="allow"
             )
 
-    def test_only_root_sees_and_changes_override_checklist(self):
+    def test_authorized_manager_sees_three_state_override_editor(self):
         update_url = reverse("user-access-update", args=(self.attendant.pk,))
         self.client.force_login(self.system_admin)
-        self.assertNotContains(self.client.get(update_url), "Funções permitidas")
+        page = self.client.get(update_url)
+        self.assertContains(page, "Acessos individuais")
+        self.assertContains(page, "Padrão do perfil")
+        self.assertContains(page, "Permitido")
+        self.assertContains(page, "Bloqueado")
+        self.assertContains(page, "Herdado: permitido")
+        self.assertContains(page, "Efetivo: permitido")
         response = self.client.post(
             update_url,
             {
                 "username": self.attendant.username,
                 "role": ROLE_ATTENDANCE,
-                "capabilities": [Capability.VIEW_CLOSINGS.value],
+                "capability_state__view_closings": "allow",
+                "capability_state__create_orders": "deny",
             },
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(self.attendant.capability_overrides.exists())
+        self.assertRedirects(response, reverse("user-access-list"))
+        effects = dict(self.attendant.capability_overrides.values_list("capability", "effect"))
+        self.assertEqual(effects[Capability.VIEW_CLOSINGS], "allow")
+        self.assertEqual(effects[Capability.CREATE_ORDERS], "deny")
 
         self.client.force_login(self.root)
-        self.assertContains(self.client.get(update_url), "Funções permitidas")
+        self.assertContains(self.client.get(update_url), "Acessos individuais")
 
     def test_root_atomically_replaces_deltas_and_restores_profile(self):
         update_url = reverse("user-access-update", args=(self.attendant.pk,))
-        selected = [
-            capability.value
-            for capability in ROLE_CAPABILITIES[ROLE_ATTENDANCE]
-            if capability != Capability.CREATE_ORDERS
-        ] + [Capability.VIEW_CLOSINGS.value]
         self.client.force_login(self.root)
         response = self.client.post(
             update_url,
             {
                 "username": self.attendant.username,
                 "role": ROLE_ATTENDANCE,
-                "capabilities": selected,
+                "capability_state__view_closings": "allow",
+                "capability_state__create_orders": "deny",
             },
         )
         self.assertRedirects(response, reverse("user-access-list"))

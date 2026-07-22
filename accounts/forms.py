@@ -6,11 +6,11 @@ from django.core.exceptions import ValidationError
 from .access import (
     CAPABILITY_CATALOG,
     CONFIGURABLE_CAPABILITIES,
-    ROLE_CAPABILITIES,
     ROOT_USERNAME,
     Capability,
     effective_capabilities_for_user,
     is_root_system_admin,
+    user_has_capability,
 )
 from .user_management import roles_actor_can_assign, user_role
 
@@ -63,6 +63,12 @@ class AttendantUpdateForm(StyledFormMixin, forms.ModelForm):
 
 
 class ManagedUserForm(StyledFormMixin, forms.ModelForm):
+    CAPABILITY_FIELD_PREFIX = "capability_state__"
+    CAPABILITY_STATE_CHOICES = (
+        ("default", "Padrão do perfil"),
+        ("allow", "Permitido"),
+        ("deny", "Bloqueado"),
+    )
     role = forms.ChoiceField(label="Perfil")
     initial_password = forms.CharField(
         label="Senha inicial",
@@ -71,11 +77,6 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
         widget=forms.PasswordInput,
         required=False,
         help_text="Obrigatória na criação; a troca será exigida no primeiro acesso.",
-    )
-    capabilities = forms.MultipleChoiceField(
-        label="Funções permitidas",
-        required=False,
-        widget=forms.CheckboxSelectMultiple,
     )
     restore_profile_defaults = forms.BooleanField(required=False, widget=forms.HiddenInput)
 
@@ -103,27 +104,33 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
                 self.fields["role"].initial = "root"
         else:
             self.fields["initial_password"].required = True
-        can_customize = is_root_system_admin(actor) and not (
+        can_customize = user_has_capability(actor, Capability.MANAGE_ATTENDANTS) and not (
             self.instance.pk and self.instance.username == ROOT_USERNAME
         )
+        self.customizable_capabilities = frozenset()
         if can_customize:
-            self.fields["capabilities"].choices = (
-                (item.capability.value, item.name)
-                for item in CAPABILITY_CATALOG
-                if item.configurable
+            actor_capabilities = effective_capabilities_for_user(actor)
+            self.customizable_capabilities = frozenset(
+                capability
+                for capability in CONFIGURABLE_CAPABILITIES
+                if is_root_system_admin(actor) or capability in actor_capabilities
             )
-            if self.instance.pk:
-                self.fields["capabilities"].initial = tuple(
-                    capability.value
-                    for capability in effective_capabilities_for_user(self.instance)
-                )
-            else:
-                default_role = allowed[0] if allowed else None
-                self.fields["capabilities"].initial = tuple(
-                    capability.value for capability in ROLE_CAPABILITIES.get(default_role, ())
+            existing = (
+                dict(self.instance.capability_overrides.values_list("capability", "effect"))
+                if self.instance.pk
+                else {}
+            )
+            for item in CAPABILITY_CATALOG:
+                if item.capability not in self.customizable_capabilities:
+                    continue
+                self.fields[self.capability_field_name(item.capability)] = forms.ChoiceField(
+                    label=item.name,
+                    choices=self.CAPABILITY_STATE_CHOICES,
+                    initial=existing.get(item.capability.value, "default"),
+                    required=False,
+                    widget=forms.RadioSelect,
                 )
         else:
-            self.fields.pop("capabilities")
             self.fields.pop("restore_profile_defaults")
         self._style_fields()
 
@@ -151,33 +158,54 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
         if self.instance.pk and self.instance.username == ROOT_USERNAME:
             if self.data.get("username", ROOT_USERNAME) != ROOT_USERNAME:
                 raise ValidationError("O login da conta raiz é imutável.")
-        submitted_capabilities = set(self.data.getlist("capabilities"))
-        catalog_values = {capability.value for capability in CONFIGURABLE_CAPABILITIES}
-        if submitted_capabilities and not is_root_system_admin(self.actor):
-            raise ValidationError("Somente o Administrador Raiz pode personalizar funções.")
-        if submitted_capabilities - catalog_values:
-            raise ValidationError("Capability inválida ou protegida pelo sistema.")
+        submitted_fields = {
+            key for key in self.data if key.startswith(self.CAPABILITY_FIELD_PREFIX)
+        }
+        if "capabilities" in self.data:
+            raise ValidationError("Formato antigo de capabilities não é aceito.")
+        allowed_fields = {
+            self.capability_field_name(capability)
+            for capability in self.customizable_capabilities
+        }
+        if submitted_fields - allowed_fields:
+            raise ValidationError("Capability inválida, protegida ou fora do escopo do gestor.")
         if (
             self.instance.pk
             and self.instance.username == ROOT_USERNAME
-            and "capabilities" in self.data
+            and submitted_fields
         ):
             raise ValidationError("A conta raiz não aceita personalizações.")
         return cleaned
 
     def capability_deltas(self) -> tuple[set[Capability], set[Capability]]:
-        if "capabilities" not in self.fields:
+        if not self.customizable_capabilities:
             return set(), set()
-        role = self.cleaned_data["role"]
-        base = set(ROLE_CAPABILITIES.get(role, ()))
-        selected = (
-            {Capability(value) for value in self.cleaned_data["capabilities"]}
-            if "capabilities" in self.data
-            else base
-        )
         if self.cleaned_data.get("restore_profile_defaults"):
-            selected = base
-        return selected - base, base - selected
+            return set(), set()
+        allowed = {
+            capability
+            for capability in self.customizable_capabilities
+            if self.cleaned_data.get(self.capability_field_name(capability)) == "allow"
+        }
+        denied = {
+            capability
+            for capability in self.customizable_capabilities
+            if self.cleaned_data.get(self.capability_field_name(capability)) == "deny"
+        }
+        return allowed, denied
+
+    def capability_controls_submitted(self) -> bool:
+        return bool(
+            self.cleaned_data.get("restore_profile_defaults")
+            or any(
+                self.capability_field_name(capability) in self.data
+                for capability in self.customizable_capabilities
+            )
+        )
+
+    @classmethod
+    def capability_field_name(cls, capability: Capability) -> str:
+        return f"{cls.CAPABILITY_FIELD_PREFIX}{capability.value}"
 
     def save(self, commit=True):
         user = super().save(commit=False)

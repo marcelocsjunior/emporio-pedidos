@@ -9,23 +9,28 @@
     {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
     <div class="form-grid two-columns">
       {% for field in form %}
-        {% if field.name != "capabilities" and field.name != "restore_profile_defaults" %}<div class="field-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endif %}
+        {% if "capability_state__" not in field.name and field.name != "restore_profile_defaults" %}<div class="field-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{{ field.errors }}</div>{% endif %}
       {% endfor %}
     </div>
     {% if capability_groups %}
       {{ role_defaults|json_script:"role-capability-defaults" }}
       {{ form.restore_profile_defaults }}
       <section class="capability-editor" aria-labelledby="capability-title">
-        <h2 id="capability-title">Funções permitidas</h2>
-        <p>A personalização vale somente para esta conta. São salvas apenas as diferenças em relação ao perfil base.</p>
-        {{ form.capabilities.errors }}
+        <h2 id="capability-title">Acessos individuais</h2>
+        <p>Escolha o padrão herdado do perfil, uma permissão individual ou um bloqueio individual. O resultado efetivo é mostrado em cada função.</p>
         {% for category, items in capability_groups.items %}
           <fieldset><legend>{{ category }}</legend>
           {% for item in items %}
-            <label class="capability-option">
-              <input type="checkbox"{% if item.configurable %} name="capabilities"{% endif %} value="{{ item.value }}"{% if item.selected %} checked{% endif %}{% if not item.configurable %} disabled{% endif %}>
-              <span><strong>{{ item.name }}</strong><small>{{ item.description }}</small><em data-capability-state="{{ item.value }}">{% if item.configurable %}Padrão do perfil{% else %}Protegida pelo sistema{% endif %}</em></span>
-            </label>
+            <div class="capability-option" data-capability="{{ item.value }}">
+              <div class="capability-copy"><strong>{{ item.name }}</strong><small>{{ item.description }}</small></div>
+              {% if item.field %}
+                <div class="capability-states">{{ item.field }}</div>
+                {{ item.field.errors }}
+                <div class="capability-result"><span data-inherited>{% if item.inherited %}Herdado: permitido{% else %}Herdado: não permitido{% endif %}</span><strong data-effective>{% if item.effective %}Efetivo: permitido{% else %}Efetivo: bloqueado{% endif %}</strong></div>
+              {% else %}
+                <div class="capability-result protected"><span>Fora do escopo de delegação</span></div>
+              {% endif %}
+            </div>
           {% endfor %}
           </fieldset>
         {% endfor %}
