@@ -2,6 +2,12 @@
 
 Este pacote prepara uma implantação PostgreSQL autônoma do Empório Pedidos, sem executar qualquer deploy. Web e worker usam a mesma imagem identificada pelo SHA Git; migrations e `bootstrap_roles` são etapas controladas. O worker reproduz o comando observado no piloto: `python manage.py run_ai_worker --interval 900`.
 
+## Acesso HTTP público temporário
+
+A URL autorizada nesta fase é `http://149.28.115.193:8850`, exposta diretamente por IP público e sem TLS. Credenciais e sessão trafegam sem criptografia: use uma credencial exclusiva e nunca reaproveite senha. `DEBUG` e IA permanecem desligados, e CSRF permanece integralmente ativo.
+
+O arquivo de ambiente explicita temporariamente `DJANGO_SESSION_COOKIE_SECURE=0` e `DJANGO_CSRF_COOKIE_SECURE=0`; isso permite login em HTTP, mas reduz a proteção de transporte dos cookies. Não use `DEBUG=1` como solução.
+
 ## Arquitetura e isolamento
 
 - aplicação: `/opt/emporio-pedidos-producao/app`
@@ -25,6 +31,8 @@ sudoedit /opt/emporio-pedidos-producao/runtime/.env
 ```
 
 Substitua todos os exemplos por segredos novos e exclusivos. Preserve `APP_PORT=8850`, o projeto e o volume definidos. IA e ações externas permanecem desligadas por padrão.
+
+Valide o login manualmente em `http://149.28.115.193:8850/conta/entrar/`, confirme que CSRF continua rejeitando requisições inválidas e encerre a sessão após o teste.
 
 ## Preflight, primeira instalação e atualização
 
@@ -65,4 +73,4 @@ Estado e evidências sanitizadas ficam em `runtime/state`, `runtime/evidence` e 
 
 O status termina em `STATUS=HEALTHY`, `STATUS=DEGRADED` ou `STATUS=UNAVAILABLE`. Para falhas, execute primeiro preflight/status, confirme espaço, Docker, checkout e permissões, e leia somente logs sanitizados. Não edite estado manualmente nem aponte para recursos do piloto.
 
-Domínio, DNS, proxy reverso e HTTPS pertencem a uma fase posterior. Este documento não autoriza deploy, cópia de dados do piloto, criação de usuários reais nem acesso ao banco real.
+Domínio, DNS, proxy reverso e HTTPS pertencem a uma fase posterior. Quando HTTPS estiver efetivamente configurado, altere `DJANGO_SESSION_COOKIE_SECURE=1` e `DJANGO_CSRF_COOKIE_SECURE=1`, valide o fluxo e remova a exposição direta da porta 8850. Este documento não autoriza DNS/TLS, deploy, cópia de dados do piloto, criação de usuários reais nem acesso ao banco real.

@@ -26,7 +26,7 @@ timestamp() { date --iso-8601=seconds; }
 log() { printf '%s [%s] %s\n' "$(timestamp)" "$1" "$2"; }
 info() { log INFO "$*"; }
 warn() { log WARN "$*"; }
-die() { log ERROR "$*" >&2; exit 1; }
+die() { log ERROR "$*" >&2; return 1; }
 sanitize() { sed -E 's/((PASSWORD|SECRET|TOKEN|KEY|COOKIE|SESSION)[^ =:]*)[=:][^ ]+/\1=[REDACTED]/Ig'; }
 require_command() { command -v "$1" >/dev/null 2>&1 || die "DEPENDENCY_MISSING=$1"; }
 is_full_sha() { [[ ${1:-} =~ ^[0-9a-f]{40}$ ]]; }
@@ -50,7 +50,12 @@ validate_identity() {
 }
 
 validate_host() {
-  [[ ${DEPLOY_HOST_ID:-VPS-RADAR-INPI} == VPS-RADAR-INPI ]] || die "HOST_ID_INVALID"
+  local expected actual
+  expected=$(env_value DEPLOY_HOST_ID)
+  [[ -n $expected && $expected != *'*'* && $expected != *'?'* ]] || die "HOST_ID_MISSING_OR_INVALID"
+  actual=$(hostname -s)
+  [[ $actual == "$expected" ]] || die "HOST_ID_MISMATCH"
+  info "HOST_ID_EXPECTED=$expected HOST_ID_VALIDATION=OK"
 }
 
 validate_dependencies() {
@@ -91,13 +96,56 @@ validate_env_file() {
   grep -Eq '^COMPOSE_PROJECT_NAME=emporio_pedidos_producao$' "$ENV_FILE" || die "ENV_PROJECT_INVALID"
   grep -Eq '^DB_VOLUME_NAME=emporio_pedidos_producao_pgdata$' "$ENV_FILE" || die "ENV_VOLUME_INVALID"
   grep -Eq '^AI_ENABLED=0$' "$ENV_FILE" || die "AI_MUST_BE_DISABLED"
+  grep -Eq '^AI_ACTIVE_ASSISTANT_ENABLED=0$' "$ENV_FILE" || die "ACTIVE_AI_MUST_BE_DISABLED"
   ! grep -Eq "$PILOT_MARKERS" "$ENV_FILE" || die "PILOT_PROTECTION=BLOCKED"
+  validate_secrets
+  validate_public_http
+}
+
+env_value() {
+  local key=$1 count
+  count=$(awk -F= -v key="$key" '$1 == key {count++} END {print count+0}' "$ENV_FILE")
+  [[ $count == 1 ]] || die "ENV_KEY_INVALID=$key"
+  awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE"
+}
+
+validate_secrets() {
+  local secret password lower
+  secret=$(env_value DJANGO_SECRET_KEY); password=$(env_value POSTGRES_PASSWORD)
+  [[ ${#secret} -ge 50 && $secret != "$password" && $secret != *[[:space:]]* ]] || die "DJANGO_SECRET_KEY_INVALID"
+  [[ ${#password} -ge 24 && $password != *[[:space:]]* ]] || die "POSTGRES_PASSWORD_INVALID"
+  [[ $password != *"aaaaaaaaaaaaaaaaaaaaaaaa"* && $password != *"000000000000000000000000"* ]] || die "POSTGRES_PASSWORD_PREDICTABLE"
+  lower=$(printf '%s\n%s' "$secret" "$password" | tr '[:upper:]' '[:lower:]')
+  ! grep -Eq 'generate-a-new|change-me|troque|example|placeholder|default-password|set-by-deploy|password123|secret123' <<<"$lower" || die "PLACEHOLDER_OR_PREDICTABLE_SECRET_REFUSED"
+  info "DJANGO_SECRET_KEY_VALID=SIM"
+  info "POSTGRES_PASSWORD_VALID=SIM"
+}
+
+validate_public_http() {
+  [[ $(env_value APP_PORT) == 8850 ]] || die "PUBLIC_HTTP_PORT_INVALID"
+  [[ $(env_value APP_BIND_HOST) == 0.0.0.0 ]] || die "PUBLIC_HTTP_BIND_INVALID"
+  [[ $(env_value DJANGO_DEBUG) == 0 ]] || die "DEBUG_MUST_BE_ZERO"
+  local hosts origins
+  hosts=$(env_value DJANGO_ALLOWED_HOSTS); origins=$(env_value DJANGO_CSRF_TRUSTED_ORIGINS)
+  [[ $hosts != *'*'* && ",$hosts," == *",149.28.115.193,"* ]] || die "ALLOWED_HOSTS_INVALID"
+  [[ $origins == http://149.28.115.193:8850 ]] || die "CSRF_TRUSTED_ORIGINS_INVALID"
+  [[ $(env_value DJANGO_SESSION_COOKIE_SECURE) == 0 ]] || die "SESSION_COOKIE_MODE_INVALID"
+  [[ $(env_value DJANGO_CSRF_COOKIE_SECURE) == 0 ]] || die "CSRF_COOKIE_MODE_INVALID"
+  info "PUBLIC_HTTP_MODE=ENABLED"
+  info "PUBLIC_URL=http://149.28.115.193:8850"
+  info "CSRF=ENABLED DEBUG=0"
 }
 
 validate_remote() {
   local remote
   remote=$(git -C "$APP_PATH" remote get-url origin)
   [[ $remote == "$EXPECTED_REMOTE" || $remote == git@github.com:marcelocsjunior/emporio-pedidos.git ]] || die "GIT_REMOTE_INVALID"
+}
+
+validate_worktree() {
+  [[ -z $(git -C "$APP_PATH" status --porcelain=v1 --untracked-files=all) ]] || die "GIT_WORKTREE_DIRTY"
+  [[ -z $(git -C "$APP_PATH" submodule status 2>/dev/null | grep -E '^[+-U]' || true) ]] || die "GIT_SUBMODULE_DIRTY"
+  info "GIT_WORKTREE_CLEAN=SIM"
 }
 
 prepare_runtime() {
@@ -122,7 +170,13 @@ compose() {
 }
 
 run() {
-  if [[ $DRY_RUN == 1 ]]; then printf 'DRY_RUN=%q' "$1"; shift; printf ' %q' "$@"; printf '\n'; else "$@"; fi
+  local label=${1:?run requires a label}; shift
+  (($#)) || die "RUN_COMMAND_MISSING=$label"
+  if [[ $DRY_RUN == 1 ]]; then
+    printf 'DRY_RUN_LABEL=%q COMMAND=' "$label"; printf '%q ' "$@"; printf '\n'
+  else
+    "$@"
+  fi
 }
 
 write_evidence() {

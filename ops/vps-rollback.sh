@@ -10,7 +10,7 @@ state_file="$RUNTIME_PATH/state/active.env"
 [[ $PREVIOUS == 1 && -z $TARGET_SHA ]] && TARGET_SHA=$(sed -n 's/^PREVIOUS_SHA=//p' "$state_file")
 require_sha "$TARGET_SHA"
 export APP_IMAGE_TAG=$TARGET_SHA
-acquire_lock; validate_identity; validate_dependencies; validate_env_file
+acquire_lock; validate_identity; validate_dependencies; validate_env_file; validate_host
 grep -Eq "(^| )deployed=$TARGET_SHA( |$)|^ACTIVE_SHA=$TARGET_SHA$|^PREVIOUS_SHA=$TARGET_SHA$" "$RUNTIME_PATH/deployments.log" "$state_file" || die "SHA_NOT_PREVIOUSLY_DEPLOYED"
 docker image inspect "${APP_IMAGE_REPOSITORY:-emporio-pedidos-producao}:$TARGET_SHA" >/dev/null 2>&1 || die "ROLLBACK_IMAGE_MISSING"
 current=$(sed -n 's/^ACTIVE_SHA=//p' "$state_file")

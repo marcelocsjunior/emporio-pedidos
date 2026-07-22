@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 TESTING = any("pytest" in argument or argument == "test" for argument in sys.argv)
 
@@ -120,8 +122,19 @@ LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+
+
+def strict_secure_cookie_setting(name: str) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return not DEBUG
+    if value not in {"0", "1"}:
+        raise ImproperlyConfigured(f"{name} must be exactly 0 or 1")
+    return value == "1"
+
+
+SESSION_COOKIE_SECURE = strict_secure_cookie_setting("DJANGO_SESSION_COOKIE_SECURE")
+CSRF_COOKIE_SECURE = strict_secure_cookie_setting("DJANGO_CSRF_COOKIE_SECURE")
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
