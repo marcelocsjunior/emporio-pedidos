@@ -141,6 +141,42 @@ jobs:
           blocked=$(curl --noproxy '*' --silent --resolve invalid.example:8850:127.0.0.1 -o /dev/null -w '%{http_code}' http://invalid.example:8850/health/)
           test "$blocked" = 400
           curl --noproxy '*' --fail --silent --resolve 149.28.115.193:8850:127.0.0.1 http://149.28.115.193:8850/static/css/app.css >/dev/null
+      - name: Behavioral automatic application rollback
+        run: |
+          set +e
+          cd /opt/emporio-pedidos-producao/app
+          previous_sha=$(sed -n 's/^ACTIVE_SHA=//p' /opt/emporio-pedidos-producao/runtime/state/active.env)
+          previous_image=$(sed -n 's/^IMAGE=//p' /opt/emporio-pedidos-producao/runtime/state/active.env)
+          volume_before=$(docker volume inspect --format '{{.Name}}' emporio_pedidos_producao_pgdata)
+          db_before=$(docker inspect --format '{{.State.Health.Status}}' emporio_pedidos_producao-db-1)
+          git config user.email ci@example.invalid
+          git config user.name CI
+          printf '\nraise RuntimeError("synthetic ci wsgi failure")\n' >> config/wsgi.py
+          git add config/wsgi.py
+          git commit -m 'ci: synthetic broken application image'
+          broken_sha=$(git rev-parse HEAD)
+          git update-ref refs/remotes/origin/main "$broken_sha"
+          ops/vps-deploy.sh --sha "$broken_sha" > /tmp/auto-rollback.out 2>&1
+          deploy_status=$?
+          set -e
+          test "$deploy_status" -ne 0
+          grep -q 'AUTO_ROLLBACK=SUCCESS' /tmp/auto-rollback.out
+          grep -q 'DEPLOY_RESULT=FAILED_APPLICATION_RESTORED' /tmp/auto-rollback.out
+          test "$(sed -n 's/^ACTIVE_SHA=//p' /opt/emporio-pedidos-producao/runtime/state/active.env)" = "$previous_sha"
+          test "$(docker inspect --format '{{.Config.Image}}' emporio_pedidos_producao-web-1)" = "$previous_image"
+          test "$(docker inspect --format '{{.Config.Image}}' emporio_pedidos_producao-worker-1)" = "$previous_image"
+          test "$(docker inspect --format '{{.State.Health.Status}}' emporio_pedidos_producao-db-1)" = "$db_before"
+          test "$(docker volume inspect --format '{{.Name}}' emporio_pedidos_producao_pgdata)" = "$volume_before"
+          for check in $(seq 1 10); do curl --fail --silent http://127.0.0.1:8850/health/ >/dev/null; done
+          curl --fail --silent http://127.0.0.1:8850/conta/entrar/ >/dev/null
+          test "$(docker inspect --format '{{.RestartCount}}' emporio_pedidos_producao-web-1)" -eq 0
+          test "$(docker inspect --format '{{.RestartCount}}' emporio_pedidos_producao-worker-1)" -eq 0
+          test -f "/opt/emporio-pedidos-producao/runtime/evidence/auto-rollback-$broken_sha.txt"
+          ! grep -q 'pg_restore\|pg_dump' /tmp/auto-rollback.out
+          echo "AUTO_ROLLBACK_BEHAVIOR_TEST=PASSOU"
+          echo "DATABASE_RESTORE=NAO"
+          echo "DATABASE_VOLUME_PRESERVED=SIM"
+          echo "APPLICATION_PREVIOUS_SHA_RESTORED=SIM"
       - name: Cleanup ephemeral deployment
         if: always()
         run: |
