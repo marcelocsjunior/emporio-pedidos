@@ -26,6 +26,7 @@ uploads/
 .env
 .env.*
 !.env.example
+!deploy/env.vps.example
 *.pem
 *.key
 *.crt

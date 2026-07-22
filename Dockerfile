@@ -1,5 +1,8 @@
 FROM python:3.12-slim
 
+ARG APP_REVISION=unknown
+LABEL org.opencontainers.image.revision="${APP_REVISION}"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
