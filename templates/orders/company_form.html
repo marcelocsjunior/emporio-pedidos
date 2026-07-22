@@ -25,4 +25,24 @@
     </div>
   </form>
 </section>
+{% if not creating %}
+<section class="panel">
+  <div class="panel-heading">
+    <div><div class="eyebrow">Entrega</div><h2>Locais de entrega</h2><p>Locais ativos ficam disponíveis no Portal B2B.</p></div>
+    <a class="button primary" href="{% url 'company-delivery-location-create' company.pk %}">Adicionar local</a>
+  </div>
+  <div class="table-wrap"><table class="responsive-table">
+    <thead><tr><th>Identificação</th><th>Endereço</th><th>Situação</th><th>Ações</th></tr></thead>
+    <tbody>{% for location in delivery_locations %}<tr>
+      <td data-label="Identificação"><strong>{{ location.label }}</strong></td>
+      <td data-label="Endereço">{{ location.full_address }}</td>
+      <td data-label="Situação">{% if location.active %}<span class="active-tag">Ativo</span>{% else %}<span class="inactive-tag">Inativo</span>{% endif %}</td>
+      <td data-label="Ações"><div class="row-actions">
+        <a class="button compact" href="{% url 'company-delivery-location-update' company.pk location.pk %}">Editar</a>
+        <form method="post" action="{% url 'company-delivery-location-toggle' company.pk location.pk %}">{% csrf_token %}<button class="button compact {% if location.active %}danger-outline{% endif %}" type="submit">{% if location.active %}Inativar{% else %}Ativar{% endif %}</button></form>
+      </div></td>
+    </tr>{% empty %}<tr><td colspan="4" class="empty-state">Nenhum local de entrega cadastrado.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
 {% endblock %}
