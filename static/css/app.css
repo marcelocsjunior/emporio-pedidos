@@ -399,7 +399,7 @@ code { font-size: 12px; overflow-wrap: anywhere; }
     padding: 3px 10px 7px;
   }
   .nav-mobile { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding-top: 10px; }
-  .internal-nav-mobile { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-top: 0; }
+  .internal-nav-mobile { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-top: 0; }
   .mobile-menu-section { min-width: 0; }
   .mobile-menu-heading {
     display: block;
@@ -409,7 +409,7 @@ code { font-size: 12px; overflow-wrap: anywhere; }
     letter-spacing: .09em;
     text-transform: uppercase;
   }
-  .nav-mobile a, .mobile-logout {
+  .nav-mobile a, .internal-nav-mobile a, .mobile-logout {
     display: block;
     width: 100%;
     color: #fff;
@@ -420,8 +420,8 @@ code { font-size: 12px; overflow-wrap: anywhere; }
     text-align: left;
     cursor: pointer;
   }
-  .nav-mobile a:hover, .mobile-logout:hover { background: rgba(255, 255, 255, .08); text-decoration: none; }
-  .nav-mobile form { margin: 0; }
+  .nav-mobile a:hover, .internal-nav-mobile a:hover, .mobile-logout:hover { background: rgba(255, 255, 255, .08); text-decoration: none; }
+  .nav-mobile form, .internal-nav-mobile form { margin: 0; }
   .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .status-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
