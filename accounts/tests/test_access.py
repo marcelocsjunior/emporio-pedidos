@@ -4,12 +4,7 @@ from django.urls import reverse
 
 from accounts.models import User
 from accounts.roles import (
-    ROLE_COMMERCIAL,
-    ROLE_MANAGEMENT,
     ROLE_NAMES,
-    ROLE_OFFICIAL_SUPPORT,
-    ROLE_OPERATIONAL,
-    ROLE_STOCK,
     ROLE_SUPPORT,
     ensure_roles,
 )
@@ -26,14 +21,7 @@ class RolesAndAuthenticationTests(TestCase):
             first_counts,
             {name: group.permissions.count() for name, group in second.items()},
         )
-        roles_without_permission_matrix = {
-            ROLE_SUPPORT,
-            ROLE_MANAGEMENT,
-            ROLE_COMMERCIAL,
-            ROLE_OPERATIONAL,
-            ROLE_STOCK,
-            ROLE_OFFICIAL_SUPPORT,
-        }
+        roles_without_permission_matrix = {ROLE_SUPPORT}
         self.assertTrue(
             all(first_counts[role] == 0 for role in roles_without_permission_matrix)
         )

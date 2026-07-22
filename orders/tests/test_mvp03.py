@@ -63,8 +63,9 @@ class Mvp03OperationalFlowTests(TestCase):
             "items-1-quantity": "3",
         }
 
-    def test_attendance_can_create_update_and_soft_deactivate_catalog_records(self):
-        self.assertTrue(self.attendance.has_perm("orders.add_product"))
+    def test_director_can_create_update_and_soft_deactivate_catalog_records(self):
+        self.client.force_login(self.director)
+        self.assertTrue(self.director.has_perm("orders.add_product"))
         company_response = self.client.post(
             reverse("company-create"),
             {

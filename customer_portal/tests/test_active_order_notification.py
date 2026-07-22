@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import User
-from accounts.roles import ROLE_ATTENDANCE, ensure_roles
+from accounts.roles import ROLE_COMMERCIAL, ensure_roles
 from customer_portal.models import (
     CustomerDeliveryLocation,
     CustomerOrderRequest,
@@ -30,7 +30,7 @@ class PortalActiveOrderNotificationTests(TestCase):
             "revisor-ativo",
             password="Senha!123456",
         )
-        cls.reviewer.groups.add(Group.objects.get(name=ROLE_ATTENDANCE))
+        cls.reviewer.groups.add(Group.objects.get(name=ROLE_COMMERCIAL))
         cls.customer = User.objects.create_user(
             "cliente-ativo",
             password="Senha!123456",

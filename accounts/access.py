@@ -7,12 +7,16 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 
 from .roles import (
-    OFFICIAL_ROLE_NAMES,
     ROLE_ADMIN,
     ROLE_ATTENDANCE,
+    ROLE_COMMERCIAL,
     ROLE_EXPEDITION,
     ROLE_FINANCE,
+    ROLE_MANAGEMENT,
+    ROLE_OFFICIAL_SUPPORT,
+    ROLE_OPERATIONAL,
     ROLE_PRODUCTION,
+    ROLE_STOCK,
     ROLE_SUPPORT,
     ROLE_SYSTEM_ADMIN,
 )
@@ -270,15 +274,35 @@ ATTENDANT_CAPABILITIES = frozenset(
         Capability.ACCESS_DASHBOARD,
         Capability.VIEW_ORDERS,
         Capability.CREATE_ORDERS,
+        Capability.EDIT_ORDERS,
+        Capability.CHANGE_ORDER_STATUS,
+        Capability.VIEW_REQUESTS,
+        Capability.REQUEST_CORRECTION,
+        Capability.VIEW_COMPANIES,
+        Capability.VIEW_PRODUCTS,
+    }
+)
+MANAGEMENT_CAPABILITIES = frozenset(
+    {
+        Capability.ACCESS_DASHBOARD,
+        Capability.VIEW_COMPANIES,
+        Capability.MANAGE_COMPANIES,
+        Capability.VIEW_ORDERS,
+        Capability.CREATE_ORDERS,
+        Capability.EDIT_ORDERS,
         Capability.CHANGE_ORDER_STATUS,
         Capability.CANCEL_ORDERS,
         Capability.VIEW_REQUESTS,
         Capability.APPROVE_REQUESTS,
+        Capability.REJECT_REQUESTS,
         Capability.REQUEST_CORRECTION,
-        Capability.VIEW_COMPANIES,
-        Capability.MANAGE_COMPANIES,
         Capability.VIEW_PRODUCTS,
         Capability.MANAGE_PRODUCTS,
+        Capability.VIEW_CLOSINGS,
+        Capability.REVIEW_CLOSINGS,
+        Capability.EXPORT_CLOSINGS,
+        Capability.VIEW_REPORTS,
+        Capability.VIEW_AUDIT,
         Capability.ACCESS_INTELLIGENCE,
         Capability.RECORD_AI_FEEDBACK,
     }
@@ -286,7 +310,52 @@ ATTENDANT_CAPABILITIES = frozenset(
 ROLE_CAPABILITIES = {
     ROLE_SYSTEM_ADMIN: SYSTEM_ADMIN_CAPABILITIES,
     ROLE_ADMIN: DIRECTOR_CAPABILITIES,
+    ROLE_MANAGEMENT: MANAGEMENT_CAPABILITIES,
     ROLE_ATTENDANCE: ATTENDANT_CAPABILITIES,
+    ROLE_COMMERCIAL: frozenset(
+        {
+            Capability.ACCESS_DASHBOARD,
+            Capability.VIEW_COMPANIES,
+            Capability.MANAGE_COMPANIES,
+            Capability.VIEW_ORDERS,
+            Capability.CREATE_ORDERS,
+            Capability.EDIT_ORDERS,
+            Capability.VIEW_REQUESTS,
+            Capability.APPROVE_REQUESTS,
+            Capability.REJECT_REQUESTS,
+            Capability.REQUEST_CORRECTION,
+            Capability.VIEW_REPORTS,
+        }
+    ),
+    ROLE_OPERATIONAL: frozenset(
+        {
+            Capability.ACCESS_DASHBOARD,
+            Capability.VIEW_ORDERS,
+            Capability.EDIT_ORDERS,
+            Capability.CHANGE_ORDER_STATUS,
+            Capability.VIEW_REQUESTS,
+            Capability.VIEW_PRODUCTS,
+        }
+    ),
+    ROLE_STOCK: frozenset(
+        {
+            Capability.ACCESS_DASHBOARD,
+            Capability.VIEW_PRODUCTS,
+            Capability.MANAGE_PRODUCTS,
+            Capability.VIEW_ORDERS,
+        }
+    ),
+    ROLE_OFFICIAL_SUPPORT: frozenset(
+        {
+            Capability.ACCESS_DASHBOARD,
+            Capability.VIEW_AUDIT,
+            Capability.VIEW_REPORTS,
+            Capability.VIEW_ORDERS,
+            Capability.VIEW_REQUESTS,
+            Capability.VIEW_COMPANIES,
+            Capability.VIEW_PRODUCTS,
+        }
+    ),
     ROLE_PRODUCTION: frozenset(
         {
             Capability.ACCESS_DASHBOARD,
@@ -319,11 +388,6 @@ ROLE_CAPABILITIES = {
         }
     ),
     ROLE_SUPPORT: frozenset({Capability.ACCESS_TECHNICAL_AREA}),
-    **{
-        role: frozenset()
-        for role in OFFICIAL_ROLE_NAMES
-        if role not in {ROLE_ADMIN, ROLE_ATTENDANCE}
-    },
 }
 
 COMPATIBILITY_PERMISSIONS = {

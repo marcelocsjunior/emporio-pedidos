@@ -57,9 +57,7 @@ class InternalOfficialRolesTests(TestCase):
             self.assertFalse(created.is_staff)
             self.assertFalse(created.is_superuser)
             self.assertTrue(created.must_change_password)
-            if role not in {ROLE_ADMIN, ROLE_ATTENDANCE}:
-                self.assertFalse(created.get_all_permissions())
-                self.assertFalse(effective_capabilities_for_user(created))
+            self.assertTrue(effective_capabilities_for_user(created))
 
     def test_existing_user_and_bio_are_unchanged_when_form_is_only_displayed(self):
         existing_snapshot = (

@@ -33,9 +33,14 @@ def allowed_statuses_for_user(user, order: Order) -> set[str]:
     if is_root_system_admin(user) or ROLE_ADMIN in roles or ROLE_SYSTEM_ADMIN in roles:
         from .services import ALLOWED_TRANSITIONS
 
-        return set(ALLOWED_TRANSITIONS[order.status])
+        allowed = set(ALLOWED_TRANSITIONS[order.status])
+        if not user_has_capability(user, Capability.CANCEL_ORDERS):
+            allowed.discard(Order.Status.CANCELLED)
+        return allowed
 
     allowed: set[str] = set()
     for role in roles:
         allowed.update(ROLE_TRANSITIONS.get(role, {}).get(order.status, set()))
+    if not user_has_capability(user, Capability.CANCEL_ORDERS):
+        allowed.discard(Order.Status.CANCELLED)
     return allowed

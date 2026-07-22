@@ -7,7 +7,7 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.roles import ROLE_ATTENDANCE, ROLE_FINANCE, ensure_roles
+from accounts.roles import ROLE_ATTENDANCE, ROLE_FINANCE, ROLE_MANAGEMENT, ensure_roles
 from intelligence.access import visible_recommendations_for_user
 from intelligence.engine import (
     enqueue_due_events,
@@ -155,10 +155,10 @@ def test_profile_permissions_limit_categories():
     attendance.groups.add(groups[ROLE_ATTENDANCE])
     finance.groups.add(groups[ROLE_FINANCE])
 
-    duplicate = create_recommendation(category=AIRecommendation.Category.DUPLICATE)
+    create_recommendation(category=AIRecommendation.Category.DUPLICATE)
     closing = create_recommendation(category=AIRecommendation.Category.CLOSING)
 
-    assert list(visible_recommendations_for_user(attendance)) == [duplicate]
+    assert list(visible_recommendations_for_user(attendance)) == []
     assert list(visible_recommendations_for_user(finance)) == [closing]
 
 
@@ -169,7 +169,7 @@ def test_feedback_is_recorded_and_audited(client):
         username="operador",
         password="senha-forte-123",
     )
-    user.groups.add(groups[ROLE_ATTENDANCE])
+    user.groups.add(groups[ROLE_MANAGEMENT])
     recommendation = create_recommendation(category=AIRecommendation.Category.DUPLICATE)
     client.force_login(user)
 
