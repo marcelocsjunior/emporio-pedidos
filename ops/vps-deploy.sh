@@ -48,6 +48,15 @@ deploy_failure() {
     export APP_IMAGE_TAG=$active_sha
     if compose up -d --no-build web worker >/dev/null 2>&1; then
       rollback_ok=1
+      stabilized=0
+      for _ in {1..30}; do
+        if curl --fail --silent --max-time 5 http://127.0.0.1:8850/health/ >/dev/null; then
+          stabilized=1
+          break
+        fi
+        sleep 2
+      done
+      [[ $stabilized == 1 ]] || rollback_ok=0
       for _ in {1..10}; do curl --fail --silent --max-time 5 http://127.0.0.1:8850/health/ >/dev/null || rollback_ok=0; done
       curl --fail --silent --max-time 5 http://127.0.0.1:8850/conta/entrar/ >/dev/null || rollback_ok=0
       [[ $(container_restart_count web) == 0 && $(container_restart_count worker) == 0 ]] || rollback_ok=0
