@@ -54,3 +54,149 @@ jobs:
           name: ruff-output
           path: ruff-output.txt
           if-no-files-found: ignore
+
+  deployment-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Validate deployment package
+        run: |
+          pytest -q tests/test_deployment_package.py
+          bash -n ops/vps-*.sh
+          test "$(find ops -maxdepth 1 -name 'vps-*.sh' ! -perm -u+x | wc -l)" -eq 0
+      - name: Prepare synthetic environment
+        run: |
+          sudo install -d -m 700 /opt/emporio-pedidos-producao
+          sudo cp -a "$GITHUB_WORKSPACE" /opt/emporio-pedidos-producao/app
+          sudo chown -R "$USER:$USER" /opt/emporio-pedidos-producao
+          git -C /opt/emporio-pedidos-producao/app remote set-url origin https://github.com/marcelocsjunior/emporio-pedidos.git
+          git -C /opt/emporio-pedidos-producao/app update-ref refs/remotes/origin/main "$GITHUB_SHA"
+          install -d -m 700 /opt/emporio-pedidos-producao/runtime
+          secret=$(openssl rand -hex 48)
+          password=$(openssl rand -hex 32)
+          host_id=$(hostname -s)
+          printf '%s\n' \
+            "DEPLOY_HOST_ID=$host_id" \
+            "DJANGO_SECRET_KEY=$secret" \
+            "DJANGO_DEBUG=0" \
+            "DJANGO_ALLOWED_HOSTS=149.28.115.193,localhost,127.0.0.1" \
+            "DJANGO_CSRF_TRUSTED_ORIGINS=http://149.28.115.193:8850" \
+            "DJANGO_TIME_ZONE=America/Sao_Paulo" \
+            "DJANGO_SESSION_COOKIE_SECURE=0" \
+            "DJANGO_CSRF_COOKIE_SECURE=0" \
+            "POSTGRES_DB=emporio_pedidos" \
+            "POSTGRES_USER=emporio_pedidos" \
+            "POSTGRES_PASSWORD=$password" \
+            "POSTGRES_HOST=db" "POSTGRES_PORT=5432" \
+            "APP_PORT=8850" "APP_BIND_HOST=0.0.0.0" \
+            "COMPOSE_PROJECT_NAME=emporio_pedidos_producao" \
+            "DB_VOLUME_NAME=emporio_pedidos_producao_pgdata" \
+            "APP_IMAGE_REPOSITORY=emporio-pedidos-producao" \
+            "APP_IMAGE_TAG=$GITHUB_SHA" "BACKUP_RETENTION_DAYS=30" \
+            "AI_ENABLED=0" "AI_MODE=shadow" "AI_ASSISTANT_PANEL_ENABLED=0" \
+            "AI_ACTIVE_ASSISTANT_ENABLED=0" \
+            > /opt/emporio-pedidos-producao/runtime/.env
+          chmod 600 /opt/emporio-pedidos-producao/runtime/.env
+      - name: Execute real orchestrator install, no-op, and reconcile
+        run: |
+          cd /opt/emporio-pedidos-producao/app
+          ops/vps-deploy.sh --sha "$GITHUB_SHA" | tee /tmp/install.out
+          grep -q 'DEPLOY_MODE=INSTALL' /tmp/install.out
+          grep -q 'RESULT=SUCCESS' /tmp/install.out
+          grep -q 'PILOT_PROTECTION=ENABLED' /tmp/install.out
+          grep -q 'HOST_ID_VALIDATION=OK' /tmp/install.out
+          grep -q 'GIT_WORKTREE_CLEAN=SIM' /tmp/install.out
+          grep -q 'PUBLIC_HTTP_MODE=ENABLED' /tmp/install.out
+          ops/vps-deploy.sh --sha "$GITHUB_SHA" | tee /tmp/no-op.out
+          grep -q 'DEPLOY_MODE=NO_OP' /tmp/no-op.out
+          grep -q 'SHA_ALREADY_DEPLOYED=SIM' /tmp/no-op.out
+          grep -q 'CHANGES=ZERO' /tmp/no-op.out
+          docker stop emporio_pedidos_producao-worker-1
+          ops/vps-deploy.sh --sha "$GITHUB_SHA" | tee /tmp/reconcile.out
+          grep -q 'DEPLOY_MODE=RECONCILE' /tmp/reconcile.out
+          docker volume inspect emporio_pedidos_producao_pgdata >/dev/null
+      - name: Validate HTTP login session and CSRF
+        run: |
+          cd /opt/emporio-pedidos-producao/app
+          login_password=$(openssl rand -hex 24)
+          echo "::add-mask::$login_password"
+          export APP_IMAGE_TAG="$GITHUB_SHA" VPS_ENV_FILE=/opt/emporio-pedidos-producao/runtime/.env
+          export COMPOSE_PROJECT_NAME=emporio_pedidos_producao APP_PORT=8850 DB_VOLUME_NAME=emporio_pedidos_producao_pgdata
+          docker compose -f deploy/docker-compose.vps.yml run --rm -e CI_LOGIN_PASSWORD="$login_password" web python manage.py shell -c "from django.contrib.auth import get_user_model; u=get_user_model().objects.create_superuser(username='ci-http-user', email='ci-http@example.invalid', password=__import__('os').environ['CI_LOGIN_PASSWORD']); print('SYNTHETIC_USER_CREATED')"
+          curl --noproxy '*' --silent --show-error --resolve 149.28.115.193:8850:127.0.0.1 -c /tmp/cookies -D /tmp/login-get.headers -o /tmp/login.html http://149.28.115.193:8850/conta/entrar/
+          csrf=$(awk '$6 == "csrftoken" {print $7}' /tmp/cookies)
+          test -n "$csrf"
+          code=$(curl --noproxy '*' --silent --show-error --resolve 149.28.115.193:8850:127.0.0.1 -b /tmp/cookies -c /tmp/cookies -o /dev/null -w '%{http_code}' -e http://149.28.115.193:8850/conta/entrar/ --data-urlencode "csrfmiddlewaretoken=$csrf" --data-urlencode 'username=ci-http-user' --data-urlencode "password=$login_password" http://149.28.115.193:8850/conta/entrar/)
+          test "$code" = 302
+          curl --noproxy '*' --fail --silent --show-error --resolve 149.28.115.193:8850:127.0.0.1 -b /tmp/cookies http://149.28.115.193:8850/pedidos/ >/dev/null
+          awk '$6 == "sessionid" {found=1; if ($4 != "FALSE") exit 2} END {exit !found}' /tmp/cookies
+          awk '$6 == "csrftoken" {found=1; if ($4 != "FALSE") exit 2} END {exit !found}' /tmp/cookies
+          bad=$(curl --noproxy '*' --silent --resolve 149.28.115.193:8850:127.0.0.1 -b /tmp/cookies -o /dev/null -w '%{http_code}' -e http://149.28.115.193:8850/conta/entrar/ --data 'csrfmiddlewaretoken=invalid' http://149.28.115.193:8850/conta/entrar/)
+          test "$bad" = 403
+          blocked=$(curl --noproxy '*' --silent --resolve invalid.example:8850:127.0.0.1 -o /dev/null -w '%{http_code}' http://invalid.example:8850/health/)
+          test "$blocked" = 400
+          curl --noproxy '*' --fail --silent --resolve 149.28.115.193:8850:127.0.0.1 http://149.28.115.193:8850/static/css/app.css >/dev/null
+      - name: Behavioral automatic application rollback
+        run: |
+          set +e
+          cd /opt/emporio-pedidos-producao/app
+          previous_sha=$(sed -n 's/^ACTIVE_SHA=//p' /opt/emporio-pedidos-producao/runtime/state/active.env)
+          previous_image=$(sed -n 's/^IMAGE=//p' /opt/emporio-pedidos-producao/runtime/state/active.env)
+          volume_before=$(docker volume inspect --format '{{.Name}}' emporio_pedidos_producao_pgdata)
+          db_before=$(docker inspect --format '{{.State.Health.Status}}' emporio_pedidos_producao-db-1)
+          git config user.email ci@example.invalid
+          git config user.name CI
+          printf '\nraise RuntimeError("synthetic ci wsgi failure")\n' >> config/wsgi.py
+          git add config/wsgi.py
+          git commit -m 'ci: synthetic broken application image'
+          broken_sha=$(git rev-parse HEAD)
+          git update-ref refs/remotes/origin/main "$broken_sha"
+          ops/vps-deploy.sh --sha "$broken_sha" > /tmp/auto-rollback.out 2>&1
+          deploy_status=$?
+          set -e
+          sed -E 's/((PASSWORD|SECRET|TOKEN|KEY|COOKIE|SESSION)[^ =:]*)[=:][^ ]+/\1=[REDACTED]/Ig' /tmp/auto-rollback.out
+          test "$deploy_status" -ne 0
+          grep -q 'AUTO_ROLLBACK=SUCCESS' /tmp/auto-rollback.out || { echo AUTO_ROLLBACK_ASSERTION_FAILED; exit 1; }
+          grep -q 'DEPLOY_RESULT=FAILED_APPLICATION_RESTORED' /tmp/auto-rollback.out || { echo DEPLOY_RESULT_ASSERTION_FAILED; exit 1; }
+          test "$(sed -n 's/^ACTIVE_SHA=//p' /opt/emporio-pedidos-producao/runtime/state/active.env)" = "$previous_sha" || { echo ACTIVE_SHA_ASSERTION_FAILED; exit 1; }
+          test "$(docker inspect --format '{{.Config.Image}}' emporio_pedidos_producao-web-1)" = "$previous_image" || { echo WEB_IMAGE_ASSERTION_FAILED; exit 1; }
+          test "$(docker inspect --format '{{.Config.Image}}' emporio_pedidos_producao-worker-1)" = "$previous_image" || { echo WORKER_IMAGE_ASSERTION_FAILED; exit 1; }
+          test "$(docker inspect --format '{{.State.Health.Status}}' emporio_pedidos_producao-db-1)" = "$db_before" || { echo DB_HEALTH_ASSERTION_FAILED; exit 1; }
+          test "$(docker volume inspect --format '{{.Name}}' emporio_pedidos_producao_pgdata)" = "$volume_before" || { echo VOLUME_ASSERTION_FAILED; exit 1; }
+          for check in $(seq 1 10); do curl --fail --silent http://127.0.0.1:8850/health/ >/dev/null; done
+          curl --fail --silent http://127.0.0.1:8850/conta/entrar/ >/dev/null
+          test "$(docker inspect --format '{{.RestartCount}}' emporio_pedidos_producao-web-1)" -eq 0
+          test "$(docker inspect --format '{{.RestartCount}}' emporio_pedidos_producao-worker-1)" -eq 0
+          test -f "/opt/emporio-pedidos-producao/runtime/evidence/auto-rollback-$broken_sha.txt"
+          ! grep -q 'pg_restore\|pg_dump' /tmp/auto-rollback.out
+          echo "AUTO_ROLLBACK_BEHAVIOR_TEST=PASSOU"
+          echo "DATABASE_RESTORE=NAO"
+          echo "DATABASE_VOLUME_PRESERVED=SIM"
+          echo "APPLICATION_PREVIOUS_SHA_RESTORED=SIM"
+      - name: Behavioral migration risk rollback block
+        run: |
+          cd /opt/emporio-pedidos-producao/app
+          awk '/^deploy_failure\(\)/,/^trap '\''deploy_failure/ { if ($0 !~ /^trap/) print }' ops/vps-deploy.sh > /tmp/deploy-failure-function.sh
+          set +e
+          bash -c 'source ops/vps-common.sh; source /tmp/deploy-failure-function.sh; migration_risk=1; deploy_stage=migration-test; deploy_failure 17' > /tmp/migration-risk.out 2>&1
+          risk_status=$?
+          set -e
+          test "$risk_status" -eq 17
+          grep -q 'AUTO_ROLLBACK=BLOCKED' /tmp/migration-risk.out
+          grep -q 'DB_ROLLBACK_DECISION_REQUIRED=SIM' /tmp/migration-risk.out
+          ! grep -q 'pg_restore\|pg_dump' /tmp/migration-risk.out
+          echo "MIGRATION_RISK_BLOCK_TEST=PASSOU"
+      - name: Cleanup ephemeral deployment
+        if: always()
+        run: |
+          if test -f /opt/emporio-pedidos-producao/runtime/.env; then
+            export APP_IMAGE_TAG="$GITHUB_SHA" VPS_ENV_FILE=/opt/emporio-pedidos-producao/runtime/.env
+            export COMPOSE_PROJECT_NAME=emporio_pedidos_producao APP_PORT=8850 DB_VOLUME_NAME=emporio_pedidos_producao_pgdata
+            docker compose -f /opt/emporio-pedidos-producao/app/deploy/docker-compose.vps.yml down --volumes --remove-orphans || true
+          fi
+          sudo rm -rf /opt/emporio-pedidos-producao

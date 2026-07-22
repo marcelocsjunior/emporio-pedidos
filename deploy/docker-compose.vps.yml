@@ -1,0 +1,57 @@
+name: ${COMPOSE_PROJECT_NAME:-emporio_pedidos_producao}
+
+x-app: &app
+  image: ${APP_IMAGE_REPOSITORY:-emporio-pedidos-producao}:${APP_IMAGE_TAG:?APP_IMAGE_TAG must be an exact revision}
+  build:
+    context: ..
+    dockerfile: Dockerfile
+    args:
+      APP_REVISION: ${APP_IMAGE_TAG}
+  env_file:
+    - ${VPS_ENV_FILE:?VPS_ENV_FILE must reference the protected external environment file}
+  environment:
+    POSTGRES_HOST: db
+    POSTGRES_PORT: "5432"
+    AI_ENABLED: "0"
+    AI_MODE: shadow
+    AI_ASSISTANT_PANEL_ENABLED: "0"
+    AI_ACTIVE_ASSISTANT_ENABLED: "0"
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    env_file:
+      - ${VPS_ENV_FILE:?VPS_ENV_FILE must reference the protected external environment file}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  web:
+    <<: *app
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "60"]
+    ports:
+      - "${APP_BIND_HOST:-0.0.0.0}:${APP_PORT:-8850}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  worker:
+    <<: *app
+    command: ["python", "manage.py", "run_ai_worker", "--interval", "900"]
+
+volumes:
+  pgdata:
+    name: ${DB_VOLUME_NAME:-emporio_pedidos_producao_pgdata}
