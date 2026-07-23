@@ -13,6 +13,10 @@
     {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
     <button type="submit" class="button primary">Entrar</button>
   </form>
-  <p><a href="{% url 'customer_portal:access-request-public' %}">Solicitar acesso</a></p>
+  {% if public_access_request_enabled %}
+    <p><a href="{% url 'customer_portal:access-request-public' %}">Solicitar acesso</a></p>
+  {% else %}
+    <p>Novos acessos são criados exclusivamente pela equipe responsável do Empório.</p>
+  {% endif %}
 </section>
 {% endblock %}
