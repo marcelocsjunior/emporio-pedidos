@@ -49,13 +49,19 @@ def test_disabled_mode_rejects_post_without_creating_request(client, settings):
     )
 
     assert response.status_code == 403
-    assert "exclusivamente pela equipe responsável do Empório" in response.content.decode()
+    assert (
+        "exclusivamente pela equipe responsável do Empório"
+        in response.content.decode()
+    )
     assert not CustomerPortalAccessRequest.objects.exists()
 
 
 def test_disabled_mode_keeps_internal_access_management_available(client, settings):
     settings.PUBLIC_ACCESS_REQUEST_ENABLED = False
-    operator = User.objects.create_user(username="operador-flag", password="SenhaForte!2026")
+    operator = User.objects.create_user(
+        username="operador-flag",
+        password="SenhaForte!2026",
+    )
     UserCapabilityOverride.objects.create(
         user=operator,
         capability="manage_companies",
@@ -66,15 +72,19 @@ def test_disabled_mode_keeps_internal_access_management_available(client, settin
     assert client.get(reverse("customer_portal:access-list")).status_code == 200
     assert client.get(reverse("customer_portal:access-create")).status_code == 200
     assert client.get(reverse("customer_portal:access-link")).status_code == 200
-    assert client.get(reverse("customer_portal:access-request-queue")).status_code == 200
+    assert (
+        client.get(reverse("customer_portal:access-request-queue")).status_code
+        == 200
+    )
 
 
 def test_enabled_mode_preserves_original_public_flow(client, settings):
     settings.PUBLIC_ACCESS_REQUEST_ENABLED = True
 
     login = client.get(reverse("login"))
-    public_page = client.get(reverse("customer_portal:access-request-public"))
+    public_url = reverse("customer_portal:access-request-public")
+    public_page = client.get(public_url)
 
-    assert reverse("customer_portal:access-request-public") in login.content.decode()
+    assert public_url in login.content.decode()
     assert public_page.status_code == 200
     assert "Enviar solicitação" in public_page.content.decode()
