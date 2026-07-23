@@ -1,6 +1,8 @@
 def user_roles(request):
     if not request.user.is_authenticated:
-        return {"current_roles": ()}
+        return {"current_roles": (), "can_manage_customer_access": False}
+    from customer_portal.access_policy import can_manage_customer_access
+
     from .access import Capability, is_root_system_admin, user_has_capability
     from .roles import (
         ROLE_ADMIN,
@@ -47,6 +49,7 @@ def user_roles(request):
             request.user, Capability.ACCESS_TECHNICAL_AREA
         ),
         "can_manage_users": user_has_capability(request.user, Capability.MANAGE_LOWER_USERS),
+        "can_manage_customer_access": can_manage_customer_access(request.user),
         "can_receive_internal_notifications": can_receive_internal_notifications,
         **capability_flags,
     }
