@@ -10,7 +10,6 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import DetailView, ListView
 
-from accounts.access import Capability, CapabilityRequiredMixin
 from orders.models import AuditEvent, Company
 
 from .access_forms import (
@@ -21,6 +20,7 @@ from .access_forms import (
     PortalUserLinkForm,
     PublicAccessRequestForm,
 )
+from .access_policy import CustomerAccessManagerMixin
 from .access_services import (
     PUBLIC_REQUEST_CREATED,
     PUBLIC_REQUEST_DUPLICATE,
@@ -87,11 +87,7 @@ class PublicAccessRequestView(View):
         return render(request, self.template_name, {"form": form}, status=400)
 
 
-class ManageCompaniesMixin(CapabilityRequiredMixin):
-    capability_required = Capability.MANAGE_COMPANIES
-
-
-class PortalAccessListView(ManageCompaniesMixin, ListView):
+class PortalAccessListView(CustomerAccessManagerMixin, ListView):
     model = CustomerPortalAccess
     template_name = "customer_portal/access_list.html"
     context_object_name = "accesses"
@@ -108,7 +104,7 @@ class PortalAccessListView(ManageCompaniesMixin, ListView):
         return context
 
 
-class PortalAccessDetailView(ManageCompaniesMixin, DetailView):
+class PortalAccessDetailView(CustomerAccessManagerMixin, DetailView):
     model = CustomerPortalAccess
     template_name = "customer_portal/access_detail.html"
     context_object_name = "access"
@@ -131,7 +127,7 @@ class PortalAccessDetailView(ManageCompaniesMixin, DetailView):
         return context
 
 
-class PortalUserCreateView(ManageCompaniesMixin, View):
+class PortalUserCreateView(CustomerAccessManagerMixin, View):
     template_name = "customer_portal/access_form.html"
 
     def get(self, request):
@@ -151,7 +147,7 @@ class PortalUserCreateView(ManageCompaniesMixin, View):
         return render(request, self.template_name, {"form": form, "creating": True}, status=400)
 
 
-class PortalUserLinkView(ManageCompaniesMixin, View):
+class PortalUserLinkView(CustomerAccessManagerMixin, View):
     template_name = "customer_portal/access_form.html"
 
     def get(self, request):
@@ -172,7 +168,7 @@ class PortalUserLinkView(ManageCompaniesMixin, View):
         return render(request, self.template_name, {"form": form, "creating": False}, status=400)
 
 
-class PortalAccessStatusView(ManageCompaniesMixin, View):
+class PortalAccessStatusView(CustomerAccessManagerMixin, View):
     def post(self, request, pk, action):
         access = get_object_or_404(CustomerPortalAccess, pk=pk)
         form = AccessStatusForm(request.POST)
@@ -192,7 +188,7 @@ class PortalAccessStatusView(ManageCompaniesMixin, View):
         return redirect("customer_portal:access-detail", pk=access.pk)
 
 
-class PortalPasswordResetView(ManageCompaniesMixin, View):
+class PortalPasswordResetView(CustomerAccessManagerMixin, View):
     template_name = "customer_portal/password_reset.html"
 
     def get(self, request, pk):
@@ -219,7 +215,7 @@ class PortalPasswordResetView(ManageCompaniesMixin, View):
         return render(request, self.template_name, {"access": access, "form": form}, status=400)
 
 
-class AccessRequestQueueView(ManageCompaniesMixin, ListView):
+class AccessRequestQueueView(CustomerAccessManagerMixin, ListView):
     model = CustomerPortalAccessRequest
     template_name = "customer_portal/access_request_queue.html"
     context_object_name = "access_requests"
@@ -272,7 +268,7 @@ class AccessRequestQueueView(ManageCompaniesMixin, ListView):
         return context
 
 
-class AccessRequestReviewView(ManageCompaniesMixin, DetailView):
+class AccessRequestReviewView(CustomerAccessManagerMixin, DetailView):
     model = CustomerPortalAccessRequest
     template_name = "customer_portal/access_request_review.html"
     context_object_name = "access_request"
