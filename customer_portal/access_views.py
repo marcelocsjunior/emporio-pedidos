@@ -43,16 +43,16 @@ PUBLIC_MESSAGES = {
         "success",
     ),
     PUBLIC_REQUEST_DUPLICATE: (
-        "Já existe uma solicitação recente com esses dados em análise. Nenhum novo registro foi criado.",
+        "Já existe uma solicitação recente em análise. Nenhum novo registro foi criado.",
         "success",
     ),
     PUBLIC_REQUEST_RATE_LIMITED: (
-        "Não foi possível registrar uma nova solicitação neste envio. Aguarde e tente novamente mais tarde.",
+        "Limite temporário atingido. Aguarde e tente novamente mais tarde.",
         "error",
     ),
 }
 PUBLIC_MESSAGE_REJECTED = (
-    "Não foi possível registrar uma nova solicitação neste envio. Revise os dados e tente novamente.",
+    "Não foi possível registrar a solicitação. Revise os dados e tente novamente.",
     "error",
 )
 
