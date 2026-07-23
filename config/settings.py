@@ -62,6 +62,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "accounts.context_processors.user_roles",
+                "customer_portal.context_processors.public_access_settings",
             ],
         },
     },
@@ -137,6 +138,8 @@ SESSION_COOKIE_SECURE = strict_secure_cookie_setting("DJANGO_SESSION_COOKIE_SECU
 CSRF_COOKIE_SECURE = strict_secure_cookie_setting("DJANGO_CSRF_COOKIE_SECURE")
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+PUBLIC_ACCESS_REQUEST_ENABLED = os.getenv("PUBLIC_ACCESS_REQUEST_ENABLED", "0") == "1"
 
 AI_ENABLED = os.getenv("AI_ENABLED", "0") == "1"
 AI_MODE = os.getenv("AI_MODE", "shadow").strip().lower()

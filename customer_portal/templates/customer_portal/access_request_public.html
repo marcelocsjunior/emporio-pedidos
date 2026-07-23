@@ -4,7 +4,10 @@
 <section class="auth-card">
   <div class="eyebrow">Portal B2B</div>
   <h1>Solicitar acesso</h1>
-  {% if submitted %}
+  {% if public_access_disabled %}
+    <div class="message error">{{ public_message }}</div>
+    <a class="button" href="{% url 'login' %}">Voltar ao login</a>
+  {% elif submitted %}
     <div class="message {{ submission_class }}">{{ public_message }}</div>
     <p>Uma pessoa responsável fará a validação quando houver uma solicitação registrada.</p>
     <a class="button" href="{% url 'login' %}">Voltar ao login</a>
