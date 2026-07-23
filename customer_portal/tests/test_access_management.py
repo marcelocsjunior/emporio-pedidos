@@ -18,6 +18,17 @@ VALID_CPF = "52998224725"
 VALID_CNPJ = "11222333000181"
 
 
+def valid_cpf(seed: int) -> str:
+    digits = [int(digit) for digit in f"{seed:09d}"[-9:]]
+    if len(set(digits)) == 1:
+        digits[-1] = (digits[-1] + 1) % 10
+    for start in (10, 11):
+        total = sum(digit * weight for digit, weight in zip(digits, range(start, 1, -1)))
+        check = (total * 10) % 11
+        digits.append(0 if check == 10 else check)
+    return "".join(str(digit) for digit in digits)
+
+
 def company(name="Cliente Fictício"):
     return Company.objects.create(name=name, entity_type=Company.EntityType.COMPANY)
 
@@ -61,7 +72,7 @@ def test_valid_public_request_is_private_and_creates_no_access(client, entity_ty
         public_payload(entity_type=entity_type, document=document),
     )
     assert response.status_code == 200
-    assert "Solicitação recebida para análise" in response.content.decode()
+    assert "Solicitação registrada para análise" in response.content.decode()
     request = CustomerPortalAccessRequest.objects.get()
     assert document not in request.__dict__.values()
     assert request.document_last_four == document[-4:]
@@ -97,29 +108,70 @@ def test_public_response_does_not_enumerate_company_or_email(client):
     User.objects.create_user(username="existente", email="pessoa@example.com")
     response = client.post(reverse("customer_portal:access-request-public"), public_payload())
     body = response.content.decode()
-    assert "Solicitação recebida para análise" in body
+    assert "Solicitação registrada para análise" in body
     assert "já existe" not in body.lower()
 
 
-def test_public_idempotency_and_honeypot(client):
+def test_public_idempotency_and_honeypot_are_explicit(client):
     url = reverse("customer_portal:access-request-public")
-    assert client.post(url, public_payload()).status_code == 200
-    assert client.post(url, public_payload()).status_code == 200
+    first = client.post(url, public_payload())
+    duplicate = client.post(url, public_payload())
+    assert first.status_code == duplicate.status_code == 200
+    assert "Solicitação registrada para análise" in first.content.decode()
+    assert "Já existe uma solicitação recente" in duplicate.content.decode()
     assert CustomerPortalAccessRequest.objects.count() == 1
-    assert (
-        client.post(url, public_payload(email="outra@example.com", website="bot")).status_code
-        == 200
-    )
+    honeypot = client.post(url, public_payload(email="outra@example.com", website="bot"))
+    assert honeypot.status_code == 200
+    assert "Não foi possível registrar" in honeypot.content.decode()
     assert CustomerPortalAccessRequest.objects.count() == 1
 
 
-def test_public_abuse_limit_is_generic(client):
+def test_public_abuse_limit_is_scoped_to_network_and_document(client):
     url = reverse("customer_portal:access-request-public")
+    responses = []
     for number in range(7):
-        response = client.post(url, public_payload(email=f"p{number}@example.com"))
-        assert response.status_code == 200
-        assert "Solicitação recebida para análise" in response.content.decode()
+        responses.append(
+            client.post(
+                url,
+                public_payload(email=f"p{number}@example.com", phone=f"1199999{number:04d}"),
+                REMOTE_ADDR="198.51.100.10",
+            )
+        )
+    assert all(response.status_code == 200 for response in responses)
     assert CustomerPortalAccessRequest.objects.count() == 5
+    assert "Não foi possível registrar" in responses[-1].content.decode()
+
+
+def test_shared_network_does_not_hide_distinct_customers(client):
+    url = reverse("customer_portal:access-request-public")
+    for number in range(1, 8):
+        response = client.post(
+            url,
+            public_payload(
+                customer_name=f"Cliente {number}",
+                document=valid_cpf(number),
+                email=f"cliente{number}@example.com",
+                phone=f"1198888{number:04d}",
+            ),
+            REMOTE_ADDR="203.0.113.25",
+        )
+        assert response.status_code == 200
+        assert "Solicitação registrada para análise" in response.content.decode()
+    assert CustomerPortalAccessRequest.objects.count() == 7
+
+
+def test_terminal_request_allows_new_submission(client):
+    url = reverse("customer_portal:access-request-public")
+    client.post(url, public_payload())
+    previous = CustomerPortalAccessRequest.objects.get()
+    previous.status = CustomerPortalAccessRequest.Status.REJECTED
+    previous.save(update_fields=("status",))
+
+    response = client.post(url, public_payload())
+
+    assert response.status_code == 200
+    assert "Solicitação registrada para análise" in response.content.decode()
+    assert CustomerPortalAccessRequest.objects.count() == 2
 
 
 def test_internal_list_requires_manage_companies(client):
@@ -129,6 +181,26 @@ def test_internal_list_requires_manage_companies(client):
     allowed = operator()
     client.force_login(allowed)
     assert client.get(reverse("customer_portal:access-list")).status_code == 200
+
+
+def test_access_request_company_filter_includes_unlinked_document_match(client):
+    target_company = Company.objects.create(
+        name="Cliente com documento",
+        document=VALID_CPF,
+        entity_type=Company.EntityType.INDIVIDUAL,
+    )
+    client.post(reverse("customer_portal:access-request-public"), public_payload())
+    client.force_login(operator())
+
+    response = client.get(
+        reverse("customer_portal:access-request-queue"), {"company": target_company.pk}
+    )
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Empresa Exemplo Ltda" in body
+    assert f'value="{target_company.pk}" selected' in body
+    assert "Limpar filtros" in body
 
 
 def test_rafa_deny_is_preserved(client):
