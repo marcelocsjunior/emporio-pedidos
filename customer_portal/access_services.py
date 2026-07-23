@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from orders.services import record_audit
@@ -17,6 +17,13 @@ User = get_user_model()
 IDEMPOTENCY_WINDOW = timedelta(hours=24)
 ABUSE_WINDOW = timedelta(hours=1)
 ABUSE_LIMIT = 5
+PUBLIC_REQUEST_CREATED = "created"
+PUBLIC_REQUEST_DUPLICATE = "duplicate"
+PUBLIC_REQUEST_RATE_LIMITED = "rate_limited"
+ACTIVE_REQUEST_STATUSES = (
+    CustomerPortalAccessRequest.Status.PENDING,
+    CustomerPortalAccessRequest.Status.IN_REVIEW,
+)
 
 
 def secure_fingerprint(value: str, *, purpose: str) -> str:
@@ -31,16 +38,25 @@ def create_public_request(*, cleaned_data: dict, remote_address: str, user_agent
     identity = "|".join((document_fp, cleaned_data["email"], cleaned_data["phone"]))
     idem_fp = secure_fingerprint(identity, purpose="idempotency")
     address_fp = secure_fingerprint(remote_address or "unknown", purpose="network")
+    abuse_fp = secure_fingerprint(f"{address_fp}|{document_fp}", purpose="abuse")
     recent = CustomerPortalAccessRequest.objects.filter(
         idempotency_fingerprint=idem_fp,
+        status__in=ACTIVE_REQUEST_STATUSES,
         requested_at__gte=now - IDEMPOTENCY_WINDOW,
     ).first()
+    if recent:
+        return recent, PUBLIC_REQUEST_DUPLICATE
+
     abuse_count = CustomerPortalAccessRequest.objects.filter(
-        abuse_metadata__network=address_fp,
+        models.Q(abuse_metadata__requester=abuse_fp)
+        | models.Q(
+            document_fingerprint=document_fp,
+            abuse_metadata__network=address_fp,
+        ),
         requested_at__gte=now - ABUSE_WINDOW,
     ).count()
-    if recent or abuse_count >= ABUSE_LIMIT:
-        return recent, False
+    if abuse_count >= ABUSE_LIMIT:
+        return None, PUBLIC_REQUEST_RATE_LIMITED
 
     with transaction.atomic():
         access_request = CustomerPortalAccessRequest.objects.create(
@@ -55,6 +71,7 @@ def create_public_request(*, cleaned_data: dict, remote_address: str, user_agent
             idempotency_fingerprint=idem_fp,
             abuse_metadata={
                 "network": address_fp,
+                "requester": abuse_fp,
                 "user_agent": secure_fingerprint(user_agent[:300], purpose="agent"),
             },
         )
@@ -64,7 +81,7 @@ def create_public_request(*, cleaned_data: dict, remote_address: str, user_agent
             entity=access_request,
             payload={"request_id": str(access_request.pk)},
         )
-    return access_request, True
+    return access_request, PUBLIC_REQUEST_CREATED
 
 
 @transaction.atomic
