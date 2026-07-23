@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, time
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -21,6 +22,9 @@ from .access_forms import (
     PublicAccessRequestForm,
 )
 from .access_services import (
+    PUBLIC_REQUEST_CREATED,
+    PUBLIC_REQUEST_DUPLICATE,
+    PUBLIC_REQUEST_RATE_LIMITED,
     approve_access_request,
     create_portal_user,
     create_public_request,
@@ -33,7 +37,24 @@ from .access_services import (
 )
 from .models import CustomerPortalAccess, CustomerPortalAccessRequest
 
-PUBLIC_MESSAGE = "Solicitação recebida para análise. O envio não libera acesso automaticamente."
+PUBLIC_MESSAGES = {
+    PUBLIC_REQUEST_CREATED: (
+        "Solicitação registrada para análise. O envio não libera acesso automaticamente.",
+        "success",
+    ),
+    PUBLIC_REQUEST_DUPLICATE: (
+        "Já existe uma solicitação recente com esses dados em análise. Nenhum novo registro foi criado.",
+        "success",
+    ),
+    PUBLIC_REQUEST_RATE_LIMITED: (
+        "Não foi possível registrar uma nova solicitação neste envio. Aguarde e tente novamente mais tarde.",
+        "error",
+    ),
+}
+PUBLIC_MESSAGE_REJECTED = (
+    "Não foi possível registrar uma nova solicitação neste envio. Revise os dados e tente novamente.",
+    "error",
+)
 
 
 class PublicAccessRequestView(View):
@@ -45,14 +66,23 @@ class PublicAccessRequestView(View):
     def post(self, request):
         form = PublicAccessRequestForm(request.POST)
         if form.is_valid():
-            if not form.cleaned_data["website"]:
-                create_public_request(
+            if form.cleaned_data["website"]:
+                public_message, submission_class = PUBLIC_MESSAGE_REJECTED
+            else:
+                _, outcome = create_public_request(
                     cleaned_data=form.cleaned_data,
                     remote_address=request.META.get("REMOTE_ADDR", ""),
                     user_agent=request.META.get("HTTP_USER_AGENT", ""),
                 )
+                public_message, submission_class = PUBLIC_MESSAGES[outcome]
             return render(
-                request, self.template_name, {"submitted": True, "public_message": PUBLIC_MESSAGE}
+                request,
+                self.template_name,
+                {
+                    "submitted": True,
+                    "public_message": public_message,
+                    "submission_class": submission_class,
+                },
             )
         return render(request, self.template_name, {"form": form}, status=400)
 
@@ -197,11 +227,24 @@ class AccessRequestQueueView(ManageCompaniesMixin, ListView):
     def get_queryset(self):
         queryset = super().get_queryset().select_related("company", "reviewed_by")
         status = self.request.GET.get("status")
-        company = self.request.GET.get("company")
+        company_id = self.request.GET.get("company")
         if status:
             queryset = queryset.filter(status=status)
-        if company:
-            queryset = queryset.filter(company_id=company)
+        if company_id:
+            try:
+                selected_company = Company.objects.only("id", "document").get(pk=company_id)
+            except (Company.DoesNotExist, ValidationError):
+                selected_company = None
+            if selected_company:
+                company_filter = Q(company=selected_company)
+                if selected_company.document:
+                    company_filter |= Q(
+                        company__isnull=True,
+                        document_fingerprint=secure_fingerprint(
+                            selected_company.document, purpose="document"
+                        ),
+                    )
+                queryset = queryset.filter(company_filter)
         for field, lookup in (("from", "gte"), ("to", "lte")):
             value = self.request.GET.get(field)
             if value:
@@ -219,6 +262,7 @@ class AccessRequestQueueView(ManageCompaniesMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["statuses"] = CustomerPortalAccessRequest.Status.choices
         context["companies"] = Company.objects.order_by("name")
+        context["company_id"] = self.request.GET.get("company", "")
         matches = {
             secure_fingerprint(company.document, purpose="document"): company
             for company in Company.objects.exclude(document="").only("id", "name", "document")
