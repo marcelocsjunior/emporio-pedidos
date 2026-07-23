@@ -23,7 +23,10 @@ def valid_cpf(seed: int) -> str:
     if len(set(digits)) == 1:
         digits[-1] = (digits[-1] + 1) % 10
     for start in (10, 11):
-        total = sum(digit * weight for digit, weight in zip(digits, range(start, 1, -1)))
+        total = sum(
+            digit * weight
+            for digit, weight in zip(digits, range(start, 1, -1), strict=False)
+        )
         check = (total * 10) % 11
         digits.append(0 if check == 10 else check)
     return "".join(str(digit) for digit in digits)
