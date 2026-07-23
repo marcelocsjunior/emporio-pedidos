@@ -47,7 +47,7 @@ PUBLIC_MESSAGES = {
         "success",
     ),
     PUBLIC_REQUEST_RATE_LIMITED: (
-        "Limite temporário atingido. Aguarde e tente novamente mais tarde.",
+        "Não foi possível registrar. Limite temporário atingido; tente novamente mais tarde.",
         "error",
     ),
 }
