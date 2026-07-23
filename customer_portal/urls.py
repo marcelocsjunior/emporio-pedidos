@@ -9,7 +9,6 @@ from .access_views import (
     PortalPasswordResetView,
     PortalUserCreateView,
     PortalUserLinkView,
-    PublicAccessRequestView,
 )
 from .active_review_views import ActiveRequestApproveView
 from .active_submit_views import ActivePortalRequestSubmitView
@@ -23,6 +22,7 @@ from .portal_views import (
     PortalRequestListView,
     PortalRequestUpdateView,
 )
+from .public_access import public_access_request_gate
 from .review_views import (
     RequestCorrectionView,
     RequestQueueView,
@@ -35,7 +35,9 @@ app_name = "customer_portal"
 
 urlpatterns = [
     path(
-        "portal/solicitar-acesso/", PublicAccessRequestView.as_view(), name="access-request-public"
+        "portal/solicitar-acesso/",
+        public_access_request_gate,
+        name="access-request-public",
     ),
     path("empresas/acessos/", PortalAccessListView.as_view(), name="access-list"),
     path("empresas/acessos/novo/", PortalUserCreateView.as_view(), name="access-create"),
