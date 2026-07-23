@@ -66,17 +66,17 @@ class HeaderNavigationTests(TestCase):
         self.assertContains(response, "Conta")
         self.assertContains(response, "Alterar senha")
 
-    def test_each_administration_item_uses_its_existing_capability_condition(self):
+    def test_each_administration_item_uses_its_specific_authorization_condition(self):
         template = self._template_source()
 
-        self.assertIn("{% if can_manage_companies %}", template)
+        self.assertIn("{% if can_manage_customer_access %}", template)
         self.assertIn("{% if can_view_audit %}", template)
         self.assertIn("{% if can_manage_users or can_manage_attendants %}", template)
         self.assertIn("{% if can_access_technical_area %}", template)
         self.assertEqual(template.count("customer_portal:access-list"), 2)
         self.assertEqual(template.count("customer_portal:access-request-queue"), 2)
 
-    def test_rafa_manage_companies_deny_hides_both_customer_access_items(self):
+    def test_rafa_not_designated_hides_both_customer_access_items(self):
         response = self.dashboard_for(self.rafa)
 
         self.assertEqual(response.status_code, 200)
