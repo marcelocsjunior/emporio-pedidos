@@ -30,13 +30,22 @@ VISIBLE_ROLE_NAMES = {
     ROLE_ADMIN: "Proprietária / Diretora",
     ROLE_ATTENDANCE: "Atendente",
 }
+UNASSIGNED_ROLE_LABEL = "Sem perfil definido"
+
+
+def is_internal_user(user) -> bool:
+    if not getattr(user, "pk", None):
+        return True
+    from customer_portal.models import CustomerPortalAccess
+
+    return not CustomerPortalAccess.objects.filter(user_id=user.pk).exists()
 
 
 def display_role(user) -> str:
     if is_root_system_admin(user):
         return "Administrador Raiz do Sistema"
     role = user.groups.filter(name__in=MANAGED_ROLE_NAMES).values_list("name", flat=True).first()
-    return VISIBLE_ROLE_NAMES.get(role, role or "Sem perfil interno")
+    return VISIBLE_ROLE_NAMES.get(role, role or UNASSIGNED_ROLE_LABEL)
 
 
 def user_role(user) -> str | None:
@@ -68,11 +77,13 @@ def roles_actor_can_manage(actor) -> tuple[str, ...]:
 
 
 def can_manage_user(actor, target) -> bool:
-    if target.username == ROOT_USERNAME:
+    if target.username == ROOT_USERNAME or not is_internal_user(target):
         return False
+    if is_root_system_admin(actor):
+        return True
     target_role = user_role(target)
     if target_role == ROLE_SYSTEM_ADMIN:
-        return is_root_system_admin(actor)
+        return False
     return target_role in roles_actor_can_manage(actor)
 
 

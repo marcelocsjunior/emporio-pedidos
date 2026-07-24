@@ -2,7 +2,7 @@
 {% block title %}Usuários e acessos · Empório{% endblock %}
 {% block content %}
 <div class="page-heading">
-  <div><div class="eyebrow">Configurações</div><h1>Usuários e acessos</h1><p>Contas internas, perfis e situação de acesso. Suspender preserva todo o histórico.</p></div>
+  <div><div class="eyebrow">Configurações</div><h1>Usuários e acessos</h1><p>Todas as contas internas, com ou sem perfil definido. Contas vinculadas às empresas permanecem em Acessos dos clientes.</p></div>
   {% if can_create_users %}<a class="button primary" href="{% url 'user-access-create' %}">Criar usuário</a>{% endif %}
 </div>
 <div class="panel"><table><thead><tr><th>Identificação</th><th>Usuário</th><th>Perfil</th><th>Estado</th><th>Ações</th></tr></thead><tbody>

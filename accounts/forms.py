@@ -12,7 +12,7 @@ from .access import (
     is_root_system_admin,
     user_has_capability,
 )
-from .user_management import roles_actor_can_assign, user_role
+from .user_management import UNASSIGNED_ROLE_LABEL, roles_actor_can_assign, user_role
 
 User = get_user_model()
 
@@ -69,7 +69,7 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
         ("allow", "Permitido"),
         ("deny", "Bloqueado"),
     )
-    role = forms.ChoiceField(label="Perfil")
+    role = forms.ChoiceField(label="Perfil", required=False)
     initial_password = forms.CharField(
         label="Senha inicial",
         strip=False,
@@ -87,11 +87,18 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
     def __init__(self, *args, actor, **kwargs):
         super().__init__(*args, **kwargs)
         self.actor = actor
-        allowed = roles_actor_can_assign(actor)
-        self.fields["role"].choices = ((role, role) for role in allowed)
+        allowed = tuple(roles_actor_can_assign(actor))
+        self.can_defer_role = is_root_system_admin(actor)
+        role_choices = [(role, role) for role in allowed]
+        if self.can_defer_role:
+            role_choices.insert(0, ("", UNASSIGNED_ROLE_LABEL))
+            self.fields["role"].help_text = (
+                "Opcional para a conta raiz. O perfil pode ser atribuído ou alterado depois."
+            )
+        self.fields["role"].choices = role_choices
         if self.instance.pk:
             current_role = user_role(self.instance)
-            self.fields["role"].initial = current_role
+            self.fields["role"].initial = current_role or ""
             if current_role and current_role not in allowed:
                 self.fields["role"].choices = (
                     *self.fields["role"].choices,
@@ -147,14 +154,14 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
             and is_root_system_admin(self.actor)
         )
         preserving_legacy_role = bool(
-            self.instance.pk and role == user_role(self.instance)
+            self.instance.pk and role and role == user_role(self.instance)
         )
-        if (
-            not editing_own_root
-            and not preserving_legacy_role
-            and role not in roles_actor_can_assign(self.actor)
-        ):
-            raise ValidationError("Perfil fora do escopo autorizado.")
+        if not editing_own_root:
+            if not role:
+                if not self.can_defer_role:
+                    raise ValidationError("Selecione um perfil para esta conta.")
+            elif not preserving_legacy_role and role not in roles_actor_can_assign(self.actor):
+                raise ValidationError("Perfil fora do escopo autorizado.")
         if self.instance.pk and self.instance.username == ROOT_USERNAME:
             if self.data.get("username", ROOT_USERNAME) != ROOT_USERNAME:
                 raise ValidationError("O login da conta raiz é imutável.")
@@ -220,5 +227,9 @@ class ManagedUserForm(StyledFormMixin, forms.ModelForm):
         if commit:
             user.save()
             if not editing_root:
-                user.groups.set((Group.objects.get(name=self.cleaned_data["role"]),))
+                role = self.cleaned_data.get("role")
+                if role:
+                    user.groups.set((Group.objects.get(name=role),))
+                else:
+                    user.groups.clear()
         return user
