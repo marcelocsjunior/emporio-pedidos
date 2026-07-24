@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}{% if creating %}Novo usuário{% else %}Editar usuário{% endif %} · Empório{% endblock %}
 {% block content %}
-<div class="page-heading"><div><div class="eyebrow">Configurações · Usuários e acessos</div><h1>{% if creating %}Criar usuário{% else %}Editar usuário{% endif %}</h1><p>Privilégios técnicos e permissões diretas não são configuráveis nesta área.</p></div></div>
+<div class="page-heading"><div><div class="eyebrow">Configurações · Usuários e acessos</div><h1>{% if creating %}Criar usuário{% else %}Editar usuário{% endif %}</h1><p>A conta raiz pode manter o usuário sem perfil e definir ou alterar o perfil posteriormente. Privilégios técnicos protegidos não são configuráveis nesta área.</p></div></div>
 <div class="panel form-panel">
   <form method="post" class="operational-form" data-capability-form>
     {% csrf_token %}
