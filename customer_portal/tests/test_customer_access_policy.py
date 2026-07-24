@@ -90,6 +90,21 @@ def test_designated_user_sees_customer_access_administration_menu(client):
     assert "Solicitações de acesso" in body
 
 
+def test_password_change_redirect_does_not_mean_backend_policy_denial(client):
+    user = User.objects.create_user(
+        username="angela",
+        password="SenhaForte!2026",
+        must_change_password=True,
+    )
+    client.force_login(user)
+
+    assert can_manage_customer_access(user)
+    response = client.get(reverse("customer_portal:access-list"))
+
+    assert response.status_code == 302
+    assert response.url == reverse("password_change")
+
+
 def test_inactive_designated_user_is_denied():
     user = User.objects.create_user(username="suporte", is_active=False)
 
