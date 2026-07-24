@@ -4,7 +4,6 @@ from django.contrib.auth.models import Group
 from django.contrib.auth.views import LoginView, PasswordChangeDoneView, PasswordChangeView
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db import transaction
-from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
@@ -23,7 +22,6 @@ from .forms import AttendantCreateForm, AttendantUpdateForm, ManagedUserForm
 from .models import UserCapabilityOverride
 from .roles import ROLE_ATTENDANCE, ROLE_SYSTEM_ADMIN
 from .user_management import (
-    MANAGED_ROLE_NAMES,
     assert_can_manage,
     audit_denied,
     can_manage_user,
@@ -284,12 +282,13 @@ class UserAccessListView(CapabilityRequiredMixin, ListView):
     def get_queryset(self):
         actor = self.request.user
         if user_has_capability(actor, Capability.VIEW_ALL_USERS):
-            queryset = User.objects.filter(
-                Q(username=ROOT_USERNAME) | Q(groups__name__in=MANAGED_ROLE_NAMES)
-            ).distinct()
+            queryset = User.objects.filter(customer_portal_access__isnull=True)
         else:
-            queryset = User.objects.filter(groups__name=ROLE_ATTENDANCE)
-        users = list(queryset.prefetch_related("groups").order_by("username"))
+            queryset = User.objects.filter(
+                groups__name=ROLE_ATTENDANCE,
+                customer_portal_access__isnull=True,
+            )
+        users = list(queryset.distinct().prefetch_related("groups").order_by("username"))
         for user in users:
             user.visible_role = display_role(user)
             user.can_be_managed = can_manage_user(actor, user) or (
@@ -326,8 +325,12 @@ class UserAccessCreateView(CapabilityRequiredMixin, View):
                 )
             _audit_capability_form_denial(request=request, target=request.user)
             return self._render(request, form, True)
-        if form.cleaned_data["role"] not in roles_actor_can_assign(request.user):
-            raise PermissionDenied("Perfil fora do escopo autorizado.")
+        role = form.cleaned_data.get("role")
+        if role:
+            if role not in roles_actor_can_assign(request.user):
+                raise PermissionDenied("Perfil fora do escopo autorizado.")
+        elif not is_root_system_admin(request.user):
+            raise PermissionDenied("Somente a conta raiz pode criar usuário sem perfil.")
         user = form.save()
         deltas = _replace_capability_overrides(user=user, form=form)
         action = "system_admin.created" if user_role(user) == ROLE_SYSTEM_ADMIN else "user.created"
@@ -358,7 +361,10 @@ class UserAccessUpdateView(CapabilityRequiredMixin, View):
     template_name = "accounts/user_form.html"
 
     def _get_target(self, pk):
-        return get_object_or_404(User.objects.prefetch_related("groups"), pk=pk)
+        return get_object_or_404(
+            User.objects.filter(customer_portal_access__isnull=True).prefetch_related("groups"),
+            pk=pk,
+        )
 
     def _authorize(self, actor, target):
         if (
@@ -380,7 +386,10 @@ class UserAccessUpdateView(CapabilityRequiredMixin, View):
 
     @transaction.atomic
     def post(self, request, pk):
-        target = get_object_or_404(User.objects.select_for_update(), pk=pk)
+        target = get_object_or_404(
+            User.objects.select_for_update().filter(customer_portal_access__isnull=True),
+            pk=pk,
+        )
         self._authorize(request.user, target)
         before = {
             "username": target.username,
@@ -398,7 +407,6 @@ class UserAccessUpdateView(CapabilityRequiredMixin, View):
                 )
             _audit_capability_form_denial(request=request, target=target)
             return self._render(request, form, target)
-        # Revalidação feita com a linha bloqueada imediatamente antes da gravação.
         self._authorize(request.user, target)
         user = form.save()
         deltas = _replace_capability_overrides(user=user, form=form)
@@ -442,7 +450,10 @@ class UserAccessToggleActiveView(CapabilityRequiredMixin, View):
     http_method_names = ("post",)
 
     def post(self, request, pk):
-        target = get_object_or_404(User, pk=pk)
+        target = get_object_or_404(
+            User.objects.filter(customer_portal_access__isnull=True),
+            pk=pk,
+        )
         toggle_user_active(actor=request.user, target=target)
         messages.success(request, "Situação de acesso atualizada.")
         return redirect("user-access-list")
@@ -453,7 +464,10 @@ class UserAccessRequirePasswordChangeView(CapabilityRequiredMixin, View):
     http_method_names = ("post",)
 
     def post(self, request, pk):
-        target = get_object_or_404(User, pk=pk)
+        target = get_object_or_404(
+            User.objects.filter(customer_portal_access__isnull=True),
+            pk=pk,
+        )
         require_password_change(actor=request.user, target=target)
         messages.success(request, "Troca de senha exigida para o próximo acesso.")
         return redirect("user-access-list")
