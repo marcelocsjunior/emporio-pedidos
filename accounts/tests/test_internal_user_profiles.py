@@ -3,12 +3,11 @@ from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 
-from customer_portal.models import CustomerPortalAccess
-from orders.models import Company
-
 from accounts.models import UserCapabilityOverride
 from accounts.roles import ROLE_ADMIN, ROLE_OFFICIAL_SUPPORT
 from accounts.user_management import UNASSIGNED_ROLE_LABEL, can_manage_user, display_role
+from customer_portal.models import CustomerPortalAccess
+from orders.models import Company
 
 User = get_user_model()
 
